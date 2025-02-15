@@ -166,7 +166,50 @@
 
             return canvasHTML;
         }
-          
+            function demo5() {
+                const num = 10; // Число для расчета факториала
+                let factorial = 1;
+                for (let i = 2; i <= num; i++) {
+                    factorial *= i;
+                }
+                return `&lt;p&gt;Факториал числа ${num}: ${factorial}&lt;/p&gt;`;
+            }          
+        function demo6() {
+            const num = 27; // Число для проверки
+            let isPrime = true;
+            for (let i = 2; i <= Math.sqrt(num); i++) {
+                if (num % i === 0) {
+                    isPrime = false;
+                    break;
+                }
+            }
+            return `&lt;p&gt;Число ${num} ${isPrime ? "простое" : "не простое"}&lt;/p&gt;`;
+        }
+
+        function demo7() {
+            const a = 56;
+            const b = 98;
+            const gcd = (x, y) => (y === 0 ? x : gcd(y, x % y));
+            return `&lt;p&gt;НОД чисел ${a} и ${b}: ${gcd(a, b)}&lt;/p&gt;`;
+        }
+
+        function demo8() {
+            const str = "Hello, World!";
+            const reversedStr = str.split("").reverse().join("");
+            return `&lt;p&gt;Реверс строки "${str}": ${reversedStr}&lt;/p&gt;`;
+        }
+    
+    
+
+
+
+
+
+
+
+
+
+        
           // ... и так далее до 1000 функций
           
           // Пример функции 1000
