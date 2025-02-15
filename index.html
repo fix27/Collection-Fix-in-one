@@ -52,9 +52,120 @@
           }
           
           // Пример функции 2
-          function demo2() {
-              return "Это демонстрация функции 2";
-          }
+        function demo2() {
+            // Заранее заданные параметры
+            const inputString = "    Пример строки с пробелами    ";
+
+            // Функция для удаления начальных и конечных пробелов
+            function probel(s) {
+                let i = 0;
+                while (s[i] === ' ') {
+                    i++;
+                }
+                let i1 = s.length - 1;
+                while (s[i1] === ' ') {
+                    i1--;
+                }
+                return s.substring(i, i1 + 1);
+            }
+
+            const result = probel(inputString);
+
+            // Возвращаем HTML-код
+            return `
+                <div class="demo-title">Demo2: Функция probel</div>
+                <p><strong>Исходная строка:</strong> "${inputString}"</p>
+                <p><strong>Результат:</strong> "${result}"</p>
+            `;
+        }
+
+        /**
+         * demo3 - Переписанная функция 'movehero'
+         * Описание: Увеличивает координату x объекта на 1.
+         * Входные параметры заданы заранее.
+         * Возвращает HTML-код с результатом.
+         */
+        function demo3() {
+            // Заранее заданные параметры
+            const hero = {
+                x: 5,
+                y: 10,
+                movehero: function() {
+                    this.x += 1;
+                }
+            };
+
+            // Вызов метода movehero
+            hero.movehero();
+
+            // Возвращаем HTML-код
+            return `
+                <div class="demo-title">Demo3: Метод movehero</div>
+                <p><strong>Исходные координаты:</strong> x = 5, y = 10</p>
+                <p><strong>Новые координаты после movehero:</strong> x = ${hero.x}, y = ${hero.y}</p>
+            `;
+        }
+
+        /**
+         * demo4 - Переписанная процедура 'prigra'
+         * Описание: Рисует сетку на канвасе (эмуляция процедуры prigra).
+         * Входные параметры заданы заранее.
+         * Возвращает HTML-код с результатом.
+         */
+        function demo4() {
+            // Создаем канвас для демонстрации
+            const canvasId = 'demo4Canvas';
+            const canvasWidth = 640;
+            const canvasHeight = 480;
+
+            // Проверка поддержки канваса
+            if (!document.createElement('canvas').getContext) {
+                return `
+                    <div class="demo-title">Demo4: Процедура prigra</div>
+                    <p>Ваш браузер не поддерживает канвас.</p>
+                `;
+            }
+
+            // Создание канваса
+            const canvasHTML = `
+                <div class="demo-title">Demo4: Процедура prigra</div>
+                <canvas id="${canvasId}" width="${canvasWidth}" height="${canvasHeight}" style="border:1px solid #000000;">
+                    Ваш браузер не поддерживает канвас.
+                </canvas>
+            `;
+
+            // Функция для рисования сетки
+            function prigra() {
+                const canvas = document.getElementById(canvasId);
+                const ctx = canvas.getContext('2d');
+
+                // Очистка канваса
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Рисуем вертикальные линии
+                for (let i = 1; i <= 32; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(i * 20, 0);
+                    ctx.lineTo(i * 20, canvas.height);
+                    ctx.strokeStyle = '#000';
+                    ctx.stroke();
+                }
+
+                // Рисуем горизонтальные линии
+                for (let i = 1; i <= 8; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, i * 60);
+                    ctx.lineTo(canvas.width, i * 60);
+                    ctx.strokeStyle = (i % 2 === 0) ? '#FF0000' : '#0000FF';
+                    ctx.stroke();
+                }
+            }
+
+            // Рисуем сетку
+            setTimeout(prigra, 100); // Задержка для гарантии создания канваса
+
+            return canvasHTML;
+        }
           
           // ... и так далее до 1000 функций
           
