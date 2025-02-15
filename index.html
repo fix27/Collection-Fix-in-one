@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Демонстрация 1000 функций на JavaScript</title>
+    <style>
+        .demo {
+            margin: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .demo h3 {
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Демонстрация 1000 функций на JavaScript</h1>
+    <div id="demos"></div>
+
+    <script>
+      // Пример функции 1
+          function demo1() {
+              // Fuction\pi
+              const v = Math.floor(c / 100);
+              c = v * 100;
+              const dx = 2 / c;
+              let oldx = -1;
+              let oldy = 0;
+              let x = -1 + dx;
+              let tpi = 0;
+          
+              for (let j = 1; j <= 100; j++) {
+                  // Обновление прогресса (аналог ProgressBar и Label)
+                  console.log(`Progress: ${j}%`);
+          
+                  for (let i = 1; i <= v - (j === 100 ? 1 : 0); i++) {
+                      const y = Math.sqrt(1 - Math.pow(x, 2));
+                      tpi += Math.sqrt(Math.pow(oldx - x, 2) + Math.pow(oldy - y, 2));
+                      oldx = x;
+                      oldy = y;
+                      x += dx;
+                  }
+              }
+          
+              tpi += Math.sqrt(Math.pow(oldx - 1, 2) + Math.pow(oldy - 0, 2));
+              return tpi;
+
+          }
+          
+          // Пример функции 2
+          function demo2() {
+              return "Это демонстрация функции 2";
+          }
+          
+          // ... и так далее до 1000 функций
+          
+          // Пример функции 1000
+          function demo1000() {
+              return "Это демонстрация функции 1000";
+          }
+        function displayDemos() {
+          const demosContainer = document.getElementById('demos');
+      
+          for (let i = 1; i <= 1000; i++) {
+              const demoFunction = window[`demo${i}`];
+              if (demoFunction && typeof demoFunction === 'function') {
+                  const demoResult = demoFunction();
+      
+                  const demoElement = document.createElement('div');
+                  demoElement.className = 'demo';
+                  demoElement.innerHTML = `<h3>Функция ${i}</h3><p>${demoResult}</p>`;
+      
+                  demosContainer.appendChild(demoElement);
+              }
+          }
+      }
+      
+      // Вызов функции для отображения всех демонстраций
+      displayDemos();
+    </script>
+</body>
+</html>
