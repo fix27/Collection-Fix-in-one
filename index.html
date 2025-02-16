@@ -313,8 +313,171 @@
         }
 
 
+function generateSplits(str) {
+    const splits = [];
+    const n = str.length;
 
+    function backtrack(start, current) {
+        if (start === n) {
+            splits.push([...current]);
+            return;
+        }
+        for (let len = 1; len <= n - start; len++) {
+            const part = str.substring(start, start + len);
+            if (len > 1 && part[0] === '0') {
+                continue;
+            }
+            current.push(parseInt(part, 10));
+            backtrack(start + len, current);
+            current.pop();
+        }
+    }
 
+    backtrack(0, []);
+    return splits;
+}
+
+function generateOperators(m) {
+    const operatorsList = [];
+    const count = m - 1;
+    const maxOp = 6;
+    const total = Math.pow(maxOp, count);
+
+    for (let i = 0; i < total; i++) {
+        const ops = [];
+        let num = i;
+        for (let j = 0; j < count; j++) {
+            ops.push((num % maxOp) + 1);
+            num = Math.floor(num / maxOp);
+        }
+        operatorsList.push(ops);
+    }
+    return operatorsList;
+}
+
+function generatePermutations(n) {
+    const result = [];
+    const nums = Array.from({ length: n }, (_, i) => i + 1);
+
+    function permute(arr, start) {
+        if (start === n) {
+            result.push([...arr]);
+            return;
+        }
+        for (let i = start; i < n; i++) {
+            [arr[start], arr[i]] = [arr[i], arr[start]];
+            permute(arr, start + 1);
+            [arr[start], arr[i]] = [arr[i], arr[start]];
+        }
+    }
+
+    permute(nums, 0);
+    return result;
+}
+
+function computeWithOrder(numbers, operators, permutation) {
+    let nums = [...numbers];
+    let ops = [...operators];
+    permutation = permutation.map(x => x - 1);
+
+    for (let i = 0; i < permutation.length; i++) {
+        const step = permutation[i];
+        if (step < 0 || step >= ops.length) return NaN;
+
+        const a = nums[step];
+        const b = nums[step + 1];
+        const op = ops[step];
+
+        if ((op === 4 || op === 6) && b === 0) return NaN;
+
+        let res;
+        switch (op) {
+            case 1: res = a + b; break;
+            case 2: res = a - b; break;
+            case 3: res = a * b; break;
+            case 4: res = a / b; break;
+            case 5: res = a * (-b); break;
+            case 6: res = a / (-b); break;
+            default: res = NaN;
+        }
+
+        nums.splice(step, 2, res);
+        ops.splice(step, 1);
+
+        for (let j = i + 1; j < permutation.length; j++) {
+            if (permutation[j] > step) {
+                permutation[j]--;
+            }
+        }
+    }
+
+    return nums[0];
+}
+
+function findCombinations(ticket) {
+    const splits = generateSplits(ticket);
+    const results = [];
+
+    for (const numbers of splits) {
+        const m = numbers.length;
+        if (m < 2) continue;
+
+        const operatorsList = generateOperators(m);
+        const permutations = generatePermutations(m - 1);
+
+        for (let sign = 0; sign < 2; sign++) {
+            const signedNumbers = [...numbers];
+            signedNumbers[0] = sign === 0 ? signedNumbers[0] : -signedNumbers[0];
+
+            for (const operators of operatorsList) {
+                for (const permutation of permutations) {
+                    try {
+                        const result = computeWithOrder(signedNumbers, operators, permutation);
+                        if (Math.abs(result - 100) < 1e-6) {
+                            results.push({
+                                numbers: signedNumbers,
+                                operators,
+                                permutation
+                            });
+                        }
+                    } catch (e) {
+                        continue;
+                    }
+                }
+            }
+        }
+    }
+
+    return results;
+}
+
+// Пример использования
+
+           function demo10() {
+
+                
+                // Генерация случайного числа от 0 до 1,000,000
+                const randomNumber = Math.floor(Math.random() * 1000000);
+                
+                // Преобразование числа в строку
+
+                const ticket =  randomNumber.toString();
+                const combinations = findCombinations(ticket);
+                
+                console.log(`Найдено ${combinations.length} комбинаций:`);
+                combinations.forEach((comb, idx) => {
+                    console.log(`Комбинация ${idx + 1}:`);
+                    let expression = comb.numbers[0].toString();
+                    for (let i = 0; i < comb.operators.length; i++) {
+                        const op = comb.operators[i];
+                        const num = comb.numbers[i + 1];
+                        const opStr = ['+', '-', '*', '/', '*-', '/ -'][op - 1];
+                        expression += ` ${opStr} ${num}`;
+                    }
+                   // console.log(expression);
+                });
+              return `Найдено ${combinations.length} комбинаций: `+expression;
+          }
 
 
 
