@@ -476,7 +476,7 @@ function findCombinations(ticket) {
                     }
                    // console.log(expression);
                 });
-              rez = randomNumber + ' Найдено ${combinations.length} комбинаций: ' + expression;
+              rez = string.concat( ticket , ' Найдено ${combinations.length} комбинаций: ' , expression);
               return rez;
           }
 
