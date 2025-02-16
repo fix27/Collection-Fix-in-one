@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -433,7 +434,7 @@ function findCombinations(ticket) {
                 for (const permutation of permutations) {
                     try {
                         const result = computeWithOrder(signedNumbers, operators, permutation);
-                        if (Math.abs(result - 100) < 1e-6) {
+                        if (Math.abs(result - 100) ==0) {
                             results.push({
                                 numbers: signedNumbers,
                                 operators,
