@@ -464,9 +464,9 @@ function findCombinations(ticket) {
                 const ticket =  randomNumber.toString();
                 const combinations = findCombinations(ticket);
                 
-                console.log(`Найдено ${combinations.length} комбинаций:`);
+                //console.log('Найдено ${combinations.length} комбинаций:');
                 combinations.forEach((comb, idx) => {
-                    console.log(`Комбинация ${idx + 1}:`);
+                    //console.log(`Комбинация ${idx + 1}:`);
                     let expression = comb.numbers[0].toString();
                     for (let i = 0; i < comb.operators.length; i++) {
                         const op = comb.operators[i];
@@ -476,7 +476,7 @@ function findCombinations(ticket) {
                     }
                    // console.log(expression);
                 });
-              return randomNumber+ ` Найдено ${combinations.length} комбинаций: `+expression;
+              return randomNumber+ ' Найдено ${combinations.length} комбинаций: '+expression;
           }
 
 
