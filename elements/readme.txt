@@ -145,5 +145,361 @@ Roza:
 16. Результат должен визуально напоминать поле фантастических деревьев с розами, аналогичное оригинальной Delphi/OpenGL программе.
 
 Сгенерируй полный готовый HTML-файл целиком, включая canvas, JavaScript, шейдеры WebGL, обработчики клавиатуры и цикл рендеринга.
+deepseek:
+Elka_snow: unit elka;
 
+interface
 
+uses
+  Windows, Forms, OpenGL;
+
+const
+  rndcount = 20000;
+  snowcount = 1024;
+
+type
+  TMainForm = class(TForm)
+    procedure FormCreate(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
+    procedure FormPaint(Sender: TObject);
+    procedure FormKeyPress(Sender: TObject; var Key: Char);
+    procedure FormResize(Sender: TObject);
+    procedure IdleLoop(Sender: TObject; var Done: Boolean);
+  private
+    FhRC: HGLRC;
+    FhDC: hDC;
+    Angle: double;
+    d: array [0 .. snowcount] of extended;
+    AutoAn: Boolean;
+    Pole: Boolean;
+  end;
+
+  Trnd = object
+    constructor Create;
+    function get: single;
+    procedure resettop;
+    procedure reset;
+    destructor Destroy;
+  private
+    m: array [1 .. rndcount] of GLfloat;
+    top: Word;
+  end;
+
+var
+  MainForm: TMainForm;
+
+  rnd: Trnd;
+
+implementation
+
+uses Dialogs;
+
+{$R *.DFM}
+
+constructor Trnd.Create;
+var
+  i: Word;
+begin
+  randomize;
+  for i := 1 to rndcount do
+    m[i] := random;
+  top := rndcount;
+end;
+
+function Trnd.get;
+begin
+  get := m[top];
+  if top > 1 then
+    top := top - 1
+  else
+    top := rndcount;
+end;
+
+procedure Trnd.reset;
+var
+  i: Word;
+begin
+  randomize;
+  for i := 1 to rndcount do
+    m[i] := random;
+  top := rndcount;
+end;
+
+procedure Trnd.resettop;
+begin
+  top := rndcount;
+end;
+
+destructor Trnd.Destroy;
+begin
+  top := 0;
+end;
+
+procedure TMainForm.FormCreate(Sender: TObject);
+var
+  pfd: TPixelFormatDescriptor;
+  PixelFormat: Integer;
+  lb: LongBool;
+begin
+  // Handle1:=MainForm.Handle;
+  FhDC := GetDC(Handle);
+  FillChar(pfd, SizeOf(pfd), 0);
+  with pfd do
+  begin
+    nSize := SizeOf(pfd);
+    nVersion := 1;
+    dwFlags := PFD_DRAW_TO_WINDOW or PFD_SUPPORT_OPENGL or PFD_DOUBLEBUFFER or
+      PFD_SWAP_COPY;
+    iPixelType := PFD_TYPE_RGBA;
+    cColorBits := 24;
+    cDepthBits := 64;
+    iLayerType := PFD_MAIN_PLANE;
+  end;
+  PixelFormat := ChoosePixelFormat(FhDC, @pfd);
+  lb := SetPixelFormat(FhDC, PixelFormat, @pfd);
+
+  FhRC := wglCreateContext(FhDC);
+
+  lb := wglMakeCurrent(FhDC, FhRC);
+  // glDrawBuffer(GL_FRONT_AND_BACK);
+  rnd.Create;
+  AutoAn := true;
+  Application.OnIdle := IdleLoop;
+end;
+
+procedure TMainForm.FormDestroy(Sender: TObject);
+begin // destroy the rendering context
+  // DestroyRenderingContext(RC);
+  rnd.Destroy;
+end;
+
+procedure TMainForm.FormPaint(Sender: TObject);
+  procedure Branches(x, y, z, d, angleZ, angleX: GLfloat; level: byte);
+  const
+    maxx = 7;
+    dl = 1;
+  var
+    i: Word;
+    cx, cy: GLdouble;
+    a: GLfloat;
+    maxd: byte;
+  begin
+    glPushMatrix;
+    glTranslatef(x, y, z);
+    glRotatef(angleZ, 0, 0, 1);
+    glRotatef(angleX, 1, 0, 0);
+
+    glBegin(GL_TRIANGLE_FAN); // draw a tetrahedron
+    glColor3d(0.8, 0.6, 0.3);
+    { glColor3f(0.8,0.8,0.81); }
+    d := d - d * 0.80 * ord(level > 2);
+    glVertex3f(0, 0, d);
+    glColor3f(0.6, 0.5, 0.2);
+    for i := 0 to maxx do
+    begin
+      cx := 0.025 * d * cos((2 * pi / maxx) * i);
+      cy := 0.025 * d * sin((2 * pi / maxx) * i);
+      { glColor3f(0.8,0.8,0.81); }
+      glVertex3d(cx, cy, 0);
+    end;
+    glEnd; // finish triangle fan
+    maxd := 8; // +round(7*rnd.get-0.5);
+    if d > maxd then
+      for i := 0 to (300 div (level * 2)) + round(rnd.get * 4) do
+      begin
+        a := (0.30 + rnd.get * 0.69);
+        Branches(0, 0, d * a, a + d * (1 - sqrt(a)), 360 * rnd.get,
+          95 + 30 * rnd.get, level + 1);
+      end
+    else
+      for i := 0 to ord(level = 2) * 100 + 10 + round(rnd.get * 7) do
+      begin
+        a := 0.3 + rnd.get * 0.7;
+        glPushMatrix;
+        glTranslatef(0, 0, d * a);
+        glRotatef(360 * rnd.get, 0, 0, 1);
+        glRotatef(180 * rnd.get, 0, 1, 0);
+        glRotatef(50 + 30 * rnd.get, 1, 0, 0);
+        glBegin(GL_LINES);
+        { if rnd.get<0.5 then glColor3f(0.8,0.4,0.4)
+          else glColor3f(1,1,0.4); }
+        glColor3f(0.3, 0.7, 0.2);
+        glVertex3f(0, 0, 0);
+        // glVertex3f(0,-dl/3,dl/3);
+        glVertex3f(0, 0, dl);
+        // glVertex3f(0,dl/3,dl/3);
+        glEnd;
+        glpopmatrix;
+      end;
+    glpopmatrix;
+  end;
+  procedure lightinitr;
+  const
+    Ambient: Array [0 .. 3] of GLfloat = (0.9, 1, 0.9, 1);
+    dif: Array [0 .. 3] of GLfloat = (0.2, 0.2, 0.2, 1);
+    em: Array [0 .. 3] of GLfloat = (0, 0, 0, 1);
+    spec: Array [0 .. 3] of GLfloat = (0, 0, 0, 0);
+    specl: Array [0 .. 3] of GLfloat = (0, 0, 0, 0);
+
+    pos: array [0 .. 3] of GLfloat = (10, 30, 30, 1);
+    dir: array [0 .. 2] of GLfloat = (-1, -1, -1);
+  var
+    c_o: single;
+    c: Integer;
+    s_e: GLfloat;
+
+  begin
+    s_e := 5;
+    c_o := 90;
+    c := 1;
+    glEnable(gl_color_material);
+    glLightModelFV(gl_light_model_local_viewer, @c);
+    glLightFV(gl_light1, gl_spot_cutoff, @c_o);
+    glLightFV(gl_light1, gl_position, @pos);
+    glLightFV(gl_light1, gl_spot_direction, @dir);
+    glLightFV(gl_light1, gl_ambient, @Ambient);
+    glLightFV(gl_light1, gl_specular, @specl);
+    glLightFV(gl_light1, gl_spot_exponent, @s_e);
+    glMaterialfv(GL_FRONT_and_back, gl_ambient, @Ambient);
+    glMaterialfv(GL_FRONT_and_back, GL_DIFFUSE, @dif);
+    glMaterialfv(GL_FRONT_and_back, gl_specular, @spec);
+    glMaterialfv(GL_FRONT_and_back, GL_emission, @em);
+
+  end;
+
+var
+  lb: LongBool;
+  i: Integer;
+  j: Integer;
+  x, y, z: extended;
+begin // draw somthing useful
+
+  lb := wglMakeCurrent(FhDC, FhRC);
+  // ActivateRenderingContext(Canvas.Handle,RC); // make context drawable
+  glClearColor(0, 0, 0.5, 0); // background color of the context}
+  glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT);
+  // clear background and depth buffer
+  glMatrixMode(GL_MODELVIEW); // activate the transformation matrix
+  glLoadIdentity; // set it to initial state
+  { gluLookAt(0,0,-6,-2,-2,10,-10,-10,0); // set up a viewer position and view point }
+  if Pole then
+    gluLookAt(-100, 0, 10, 0, 0, 15, 0, 0, 1)
+  else
+    gluLookAt(-50, 0, 10, 0, 0, 15, 0, 0, 1);
+  // set up a viewer position and view point }
+  // glTranslatef(0,0,0);
+  { if not pole then }
+   {  glScalef(1,sin(Angle*pi/90),1); // simulate bumping }
+  // glEnable(GL_AUTO_NORMAL);
+  glEnable(GL_DEPTH_TEST); // enable depth testing
+  glRotatef(-Angle, 0, 0, 1);
+  lightinitr;
+  glEnable(gl_light1);
+  glEnable(GL_LIGHTING);
+  glRotatef(2 * Angle, 0, 0, 1);
+  rnd.resettop;
+  glBegin(GL_LINES);
+  for i := 0 to snowcount do
+  begin
+    x := 30 - 60 * rnd.get;
+    y := 30 - 60 * rnd.get;
+    z := 10 + 40 * rnd.get + d[i];
+    glColor3f(1, 1, 1);
+    glVertex3f(x, y, z + 0.1);
+    glVertex3f(x, y, z - 0.1);
+    glVertex3f(x, y + 0.1, z);
+    glVertex3f(x, y - 0.1, z);
+    glVertex3f(x + 0.1, y, z);
+    glVertex3f(x - 0.1, y, z);
+    glVertex3f(x + 0.07, y, z + 0.07);
+    glVertex3f(x - 0.07, y, z - 0.07);
+    glVertex3f(x, y + 0.07, z + 0.07);
+    glVertex3f(x, y - 0.07, z - 0.07);
+    glVertex3f(x + 0.07, y + 0.07, z);
+    glVertex3f(x - 0.07, y - 0.07, z);
+    glVertex3f(x + 0.07, y + 0.07, z + 0.07);
+    glVertex3f(x - 0.07, y - 0.07, z - 0.07);
+    d[i] := d[i] - 0.2;
+    if z < -1 then
+      d[i] := 0;
+  end;
+  glEnd;
+  if Pole then
+    for i := -3 to 3 do
+      for j := -3 to 3 do
+        Branches(j * 10, i * 10, 0, 10 + (7 * rnd.get), 0, 0, 1)
+  else
+    Branches(0, 0, 0, 24 + (7 * rnd.get), 0, 0, 1);
+
+  lb := SwapBuffers(FhDC);
+  { Branches(0,-10,0,27,0,0,1); }
+  // copy back buffer to front
+  // DeactivateRenderingContext; // release control of context
+end;
+
+procedure TMainForm.FormKeyPress(Sender: TObject; var Key: Char);
+begin
+  if Key = #27 then
+    Application.Terminate;
+  if UpCase(Key) = 'D' then
+    Angle := Angle + 1;
+  if UpCase(Key) = 'A' then
+    Angle := Angle - 1;
+  if UpCase(Key) = 'S' then
+    AutoAn := not AutoAn;
+  if UpCase(Key) = 'X' then
+    Pole := not Pole;
+  if UpCase(Key) = ' ' then
+    rnd.reset;
+end;
+
+procedure TMainForm.FormResize(Sender: TObject);
+var
+  lb: LongBool;
+begin // handle form resizing (viewport must be adjusted)
+  // FhDC := GetDC(Canvas.Handle);
+  // lb := wglMakeCurrent(FhDC, FhRC);; // another way to make context drawable
+  glViewport(0, 0, Width, Height);
+  // specify a viewport (has not necessarily to be the entire window)
+  glMatrixMode(GL_PROJECTION); // activate projection matrix
+  glLoadIdentity; // set initial state
+  gluPerspective(35, Width / Height, 1, 100);
+  // specify perspective params (see OpenGL.hlp)
+  // wglMakeCurrent(0,0); // another way to release control of context
+  // Refresh;             // cause redraw
+end;
+
+procedure TMainForm.IdleLoop(Sender: TObject; var Done: Boolean);
+begin // do some animation
+  { Inc(Angle,1); }
+  if AutoAn then
+    Angle := Angle + 0.08;
+  if Angle >= 360 then
+    Angle := 0;
+  FormPaint(nil);
+  Done := false;
+end;
+
+end.
+перепиши в единым html файлом,
+
+оптимизируй код чтобы был короче и сделай светлее и 10 раз меньше объектов чтобы не тормазило
+неплохо, сделай в три раза больше веток на елках и снего невидно вобще почемуто
+claude.ai
+почему-то не видно снег исправь код так чтобы было видно снег, и приготовь файл результата
+сделай снег типа токого  glColor3f(1, 1, 1);
+    glVertex3f(x, y, z + 0.1);
+    glVertex3f(x, y, z - 0.1);
+    glVertex3f(x, y + 0.1, z);
+    glVertex3f(x, y - 0.1, z);
+    glVertex3f(x + 0.1, y, z);
+    glVertex3f(x - 0.1, y, z);
+    glVertex3f(x + 0.07, y, z + 0.07);
+    glVertex3f(x - 0.07, y, z - 0.07);
+    glVertex3f(x, y + 0.07, z + 0.07);
+    glVertex3f(x, y - 0.07, z - 0.07);
+    glVertex3f(x + 0.07, y + 0.07, z);
+    glVertex3f(x - 0.07, y - 0.07, z);
+    glVertex3f(x + 0.07, y + 0.07, z + 0.07);
+    glVertex3f(x - 0.07, y - 0.07, z - 0.07);
+ снижинками, этот слишком крупный
