@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ёлка со снегом</title>
+  <style>
+    * { margin: 0; padding: 0; }
+    body { overflow: hidden; background: #0d1b2a; }
+    #hint {
+      position: fixed; bottom: 15px; left: 15px;
+      color: rgba(255,255,255,0.9);
+      font-family: sans-serif; font-size: 13px;
+      background: rgba(0,0,0,0.5);
+      padding: 6px 14px; border-radius: 20px; z-index: 10;
+    }
+    .key { background: rgba(255,255,255,0.25); padding: 2px 6px; border-radius: 4px; margin: 0 2px; }
+  </style>
+</head>
+<body>
+  <div id="hint">
+    <span class="key">A/D</span> вращать ·
+    <span class="key">S</span> авто ·
+    <span class="key">X</span> лес ·
+    <span class="key">Пробел</span> новая
+  </div>
+
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js" } }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+
+    // ─── RNG ────────────────────────────────────────────────────────────
+    class Rnd {
+      constructor() { this.N=2000; this.buf=new Float32Array(this.N); this.top=this.N; this.reset(); }
+      reset()    { for(let i=0;i<this.N;i++) this.buf[i]=Math.random(); this.top=this.N; }
+      resettop() { this.top=this.N; }
+      get()      { const v=this.buf[--this.top]; if(this.top===0) this.top=this.N; return v; }
+    }
+    const rnd = new Rnd();
+    let angle=0, autoRot=true, pole=false;
+
+    // ─── Сцена ──────────────────────────────────────────────────────────
+    const scene  = new THREE.Scene();
+    scene.background = new THREE.Color(0x0d1b2a);
+    const camera = new THREE.PerspectiveCamera(35, innerWidth/innerHeight, 0.1, 300);
+    camera.up.set(0,1,0);
+    const renderer = new THREE.WebGLRenderer({ antialias:true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
+    document.body.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0x8899bb, 1.2));
+    const sun = new THREE.DirectionalLight(0xfff5e6, 4);
+    sun.position.set(15,40,30); scene.add(sun);
+    const fill = new THREE.PointLight(0xaaccff, 8, 60);
+    fill.position.set(0,-5,20); scene.add(fill);
+
+    // ─── Ёлка ───────────────────────────────────────────────────────────
+    const treeGroup = new THREE.Group();
+    scene.add(treeGroup);
+    const matBark        = new THREE.MeshLambertMaterial({color:0x8B6914});
+    const matNeedle      = new THREE.MeshLambertMaterial({color:0x2d5a1e});
+    const matNeedleLight = new THREE.MeshLambertMaterial({color:0x4a8c34});
+
+    function makeCone(r,h,seg=4){ const g=new THREE.ConeGeometry(r,h,seg,1); g.translate(0,h/2,0); return g; }
+
+    function addBranch(parent,x,y,z,len,angZ,angX,lvl){
+      const group=new THREE.Group();
+      group.position.set(x,z,y);
+      group.rotation.order='YXZ';
+      group.rotateY(THREE.MathUtils.degToRad(angZ));
+      group.rotateX(THREE.MathUtils.degToRad(angX));
+      parent.add(group);
+      let effLen=len; if(lvl>2) effLen=len*0.2;
+      const r=0.025*effLen;
+      group.add(new THREE.Mesh(makeCone(r,effLen,4), lvl<=1?matBark:matNeedle));
+      if(effLen>8){
+        const cnt=Math.floor(90/(lvl*2))+Math.floor(rnd.get()*3);
+        for(let i=0;i<cnt;i++){
+          const a=0.3+rnd.get()*0.7;
+          addBranch(group,0,0,effLen*a, a+effLen*(1-Math.sqrt(a)), 360*rnd.get(), 95+30*rnd.get(), lvl+1);
+        }
+      } else {
+        let nc=3+Math.floor(rnd.get()*3); if(lvl===2) nc+=30;
+        for(let i=0;i<nc;i++){
+          const a=0.3+rnd.get()*0.7;
+          const ng=new THREE.Group();
+          ng.position.set(0,effLen*a,0);
+          ng.rotation.order='YXZ';
+          ng.rotateY(THREE.MathUtils.degToRad(360*rnd.get()));
+          ng.rotateX(THREE.MathUtils.degToRad(180*rnd.get()));
+          ng.rotateZ(THREE.MathUtils.degToRad(50+30*rnd.get()));
+          const cg=new THREE.CylinderGeometry(0.03,0.03,1,4,1); cg.translate(0,0.5,0);
+          ng.add(new THREE.Mesh(cg, rnd.get()<0.5?matNeedle:matNeedleLight));
+          group.add(ng);
+        }
+      }
+    }
+
+    function buildTree(){
+      while(treeGroup.children.length) treeGroup.remove(treeGroup.children[0]);
+      rnd.resettop();
+      if(pole){ for(let i=-3;i<=3;i++) for(let j=-3;j<=3;j++) addBranch(treeGroup,j*10,i*10,0,10+7*rnd.get(),0,0,1); }
+      else { addBranch(treeGroup,0,0,0,24+7*rnd.get(),0,0,1); }
+    }
+    buildTree();
+
+    // ─── СНЕГ: LineSegments, одна геометрия на все снежинки ─────────────
+    //
+    // Каждая снежинка = 7 отрезков (14 вершин), масштаб s:
+    //   ось Z:  (0,0,+s)–(0,0,−s)
+    //   ось Y:  (0,+s,0)–(0,−s,0)
+    //   ось X:  (+s,0,0)–(−s,0,0)
+    //   диаг XZ:(+d,0,+d)–(−d,0,−d)   d=s*0.7
+    //   диаг YZ:(0,+d,+d)–(0,−d,−d)
+    //   диаг XY:(+d,+d,0)–(−d,−d,0)
+    //   диаг XYZ:(+d,+d,+d)–(−d,−d,−d)
+
+    const SNOW   = 800;        // кол-во снежинок
+    const VERTS  = 14;         // вершин на снежинку (7 отрезков × 2)
+    const S      = 0.18;       // размер снежинки в мировых единицах
+    const D      = S * 0.70;
+
+    // шаблон одной снежинки в локальных координатах (центр = 0)
+    const TEMPLATE = new Float32Array([
+       0, 0, S,    0, 0,-S,
+       0, S, 0,    0,-S, 0,
+       S, 0, 0,   -S, 0, 0,
+       D, 0, D,   -D, 0,-D,
+       0, D, D,    0,-D,-D,
+       D, D, 0,   -D,-D, 0,
+       D, D, D,   -D,-D,-D,
+    ]);
+
+    // позиции всех вершин (обновляем каждый кадр)
+    const allPos = new Float32Array(SNOW * VERTS * 3);
+
+    // параметры каждой снежинки (позиция, скорость, фаза, вращение)
+    const flakeX   = new Float32Array(SNOW);
+    const flakeY   = new Float32Array(SNOW);
+    const flakeZ   = new Float32Array(SNOW);
+    const flakeVY  = new Float32Array(SNOW);   // скорость падения
+    const flakeVX  = new Float32Array(SNOW);   // боковой снос
+    const flakeVZ  = new Float32Array(SNOW);
+    const flakeRY  = new Float32Array(SNOW);   // угол вращения вокруг Y
+    const flakeWY  = new Float32Array(SNOW);   // угловая скорость
+    const flakePhase = new Float32Array(SNOW); // фаза колебания
+
+    const SPREAD = 60;  // полуразмер области снегопада
+    const YMIN   = -8;
+    const YMAX   = 50;
+
+    for(let i=0;i<SNOW;i++){
+      flakeX[i] = (Math.random()-0.5)*SPREAD*2;
+      flakeY[i] = YMIN + Math.random()*(YMAX-YMIN);
+      flakeZ[i] = (Math.random()-0.5)*SPREAD*2;
+      flakeVY[i] = 0.03 + Math.random()*0.07;
+      flakeVX[i] = (Math.random()-0.5)*0.01;
+      flakeVZ[i] = (Math.random()-0.5)*0.01;
+      flakeRY[i] = Math.random()*Math.PI*2;
+      flakeWY[i] = (Math.random()-0.5)*0.04;
+      flakePhase[i] = Math.random()*Math.PI*2;
+    }
+
+    const snowGeo = new THREE.BufferGeometry();
+    snowGeo.setAttribute('position', new THREE.BufferAttribute(allPos, 3));
+
+    // индексы: для каждой снежинки — 7 пар (i*14+0,i*14+1), (i*14+2,i*14+3), ...
+    const idx = new Uint32Array(SNOW * 14);
+    for(let i=0;i<SNOW;i++) for(let j=0;j<14;j++) idx[i*14+j] = i*14+j;
+    snowGeo.setIndex(new THREE.BufferAttribute(idx, 1));
+
+    const snowMat = new THREE.LineBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+    });
+
+    const snowMesh = new THREE.LineSegments(snowGeo, snowMat);
+    snowMesh.frustumCulled = false;
+    scene.add(snowMesh);
+
+    // Рабочие объекты для вращения снежинки
+    const _v  = new THREE.Vector3();
+    const _q  = new THREE.Quaternion();
+    const _ax = new THREE.Vector3(0,1,0);
+
+    function updateSnow(t){
+      const pos = allPos;
+      for(let i=0;i<SNOW;i++){
+        // физика
+        flakeY[i] -= flakeVY[i];
+        flakeX[i] += flakeVX[i] + Math.sin(t*0.6 + flakePhase[i])*0.004;
+        flakeZ[i] += flakeVZ[i] + Math.cos(t*0.4 + flakePhase[i]*1.3)*0.003;
+        flakeRY[i] += flakeWY[i];
+
+        // сброс вверх
+        if(flakeY[i] < YMIN){
+          flakeX[i] = (Math.random()-0.5)*SPREAD*2;
+          flakeY[i] = YMAX;
+          flakeZ[i] = (Math.random()-0.5)*SPREAD*2;
+        }
+
+        // кватернион поворота вокруг Y
+        _q.setFromAxisAngle(_ax, flakeRY[i]);
+
+        const cx=flakeX[i], cy=flakeY[i], cz=flakeZ[i];
+        const base = i*VERTS*3;
+
+        // трансформируем каждую из 14 вершин шаблона
+        for(let v=0;v<VERTS;v++){
+          _v.set(TEMPLATE[v*3], TEMPLATE[v*3+1], TEMPLATE[v*3+2]);
+          _v.applyQuaternion(_q);
+          pos[base + v*3]     = cx + _v.x;
+          pos[base + v*3 + 1] = cy + _v.y;
+          pos[base + v*3 + 2] = cz + _v.z;
+        }
+      }
+      snowGeo.attributes.position.needsUpdate = true;
+    }
+
+    // ─── Управление ─────────────────────────────────────────────────────
+    window.addEventListener('resize',()=>{
+      camera.aspect=innerWidth/innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth,innerHeight);
+    });
+    window.addEventListener('keydown',e=>{
+      if(e.key==='d'||e.key==='D') angle++;
+      if(e.key==='a'||e.key==='A') angle--;
+      if(e.key==='s'||e.key==='S') autoRot=!autoRot;
+      if(e.key==='x'||e.key==='X'){ pole=!pole; buildTree(); }
+      if(e.key===' '){ e.preventDefault(); rnd.reset(); buildTree(); }
+    });
+
+    // ─── Анимация ────────────────────────────────────────────────────────
+    function animate(){
+      requestAnimationFrame(animate);
+      if(autoRot) angle+=0.08;
+      if(angle>=360) angle-=360;
+      treeGroup.rotation.y = THREE.MathUtils.degToRad(-angle);
+      if(pole){ camera.position.set(-100,10,0); camera.lookAt(0,15,0); }
+      else    { camera.position.set(-50,10,0);  camera.lookAt(0,15,0); }
+      updateSnow(performance.now()*0.001);
+      renderer.render(scene,camera);
+    }
+    animate();
+  </script>
+</body>
+</html>
