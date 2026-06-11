@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Delphi OpenGL Morphing Particles</title>
+
+<!--
+Перенос Delphi/OpenGL приложения в один HTML-файл.
+
+Соответствие Delphi -> JavaScript:
+
+TQuad:
+record
+  x,y,z,a: GLfloat;
+end;
+
+=>
+
+{
+  x:Number,
+  y:Number,
+  z:Number,
+  size:Number
+}
+
+TQuads:
+- NewQuads[0..11,1..8000]
+- Quads[1..8000]
+- anim
+- speed
+- Paint()
+- Move()
+
+=> реализовано классом TQuads.
+
+Сохранены:
+- 8000 объектов
+- все 12 режимов
+- алгоритм Move()
+- автоматическое вращение
+- управление клавиатурой
+- случайное переключение форм после завершения интерполяции
+-->
+
+<style>
+html,body{
+    margin:0;
+    width:100%;
+    height:100%;
+    overflow:hidden;
+    background:#000;
+}
+
+canvas{
+    display:block;
+    width:100%;
+    height:100%;
+}
+
+#info{
+    position:fixed;
+    top:10px;
+    left:10px;
+    color:white;
+    font:14px monospace;
+    z-index:10;
+    user-select:none;
+}
+</style>
+</head>
+<body>
+
+<div id="info"></div>
+<canvas id="glcanvas"></canvas>
+
+<script>
+"use strict";
+
+/* ============================
+   Константы Delphi
+============================ */
+
+const MAX_ANIM = 11;
+const CObj = 8000;
+
+/* ============================
+   TQuad
+============================ */
+
+function createQuad(x=0,y=0,z=0,size=0.05){
+    return {x,y,z,size};
+}
+
+/* ============================
+   Math
+============================ */
+
+const PI = Math.PI;
+
+function randRange(a,b){
+    return a + Math.random()*(b-a);
+}
+
+/* ============================
+   TQuads
+============================ */
+
+class TQuads{
+
+    constructor(){
+
+        this.NewQuads = [];
+
+        for(let i=0;i<=MAX_ANIM;i++){
+            this.NewQuads[i] = new Array(CObj);
+        }
+
+        this.Quads = new Array(CObj);
+
+        this.anim = Math.floor(Math.random()*MAX_ANIM);
+        this.speed = 1/30;
+
+        this.createForms();
+
+        for(let i=0;i<CObj;i++){
+            this.Quads[i]=createQuad(0,0,0,0.05);
+        }
+    }
+
+    createForms(){
+
+        /* --------------------
+           0 Random cloud
+        -------------------- */
+
+        for(let i=0;i<CObj;i++){
+            this.NewQuads[0][i]=createQuad(
+                5-Math.random()*10,
+                5-Math.random()*10,
+                5-Math.random()*10,
+                0.05
+            );
+        }
+
+        /* --------------------
+           1 Sphere
+        -------------------- */
+
+        for(let i=0;i<CObj;i++){
+
+            let g=2*PI*Math.random();
+            let b=2*PI*Math.random();
+            let r=5*(1-2*Math.random());
+
+            this.NewQuads[1][i]=createQuad(
+                r*Math.cos(g)*Math.sin(b),
+                r*Math.sin(g)*Math.sin(b),
+                r*Math.cos(b),
+                0.05
+            );
+        }
+
+        /* --------------------
+           2 Grid
+        -------------------- */
+
+        let ii=0;
+
+        for(let i=-20;i<=19;i++)
+        for(let j=-20;j<=19;j++)
+        for(let k=0;k<=4;k++){
+
+            this.NewQuads[2][ii++]=createQuad(
+                i/10,
+                j/10,
+                k/10,
+                0.05
+            );
+        }
+
+        /* --------------------
+           3 Cube
+        -------------------- */
+
+        ii=0;
+
+        for(let i=-10;i<=9;i++)
+        for(let j=-10;j<=9;j++)
+        for(let k=-10;k<=9;k++){
+
+            this.NewQuads[3][ii++]=createQuad(
+                i/10,
+                j/10,
+                k/10,
+                0.05
+            );
+        }
+
+        /* --------------------
+           4 Plane
+        -------------------- */
+
+        ii=0;
+
+        for(let i=-20;i<=19;i++)
+        for(let j=0;j<=4;j++)
+        for(let k=-20;k<=19;k++){
+
+            this.NewQuads[4][ii++]=createQuad(
+                i/10,
+                j/10,
+                k/10,
+                0.05
+            );
+        }
+
+        /* --------------------
+           5 Enlarged plane
+        -------------------- */
+
+        ii=0;
+
+        for(let i=-20;i<=19;i++)
+        for(let j=0;j<=4;j++)
+        for(let k=-20;k<=19;k++){
+
+            this.NewQuads[5][ii++]=createQuad(
+                i/5,
+                j/5,
+                k/5,
+                0.05
+            );
+        }
+
+        /* --------------------
+           6 Vertical XY
+        -------------------- */
+
+        ii=0;
+
+        for(let i=-40;i<=39;i++)
+        for(let j=-50;j<=49;j++){
+
+            this.NewQuads[6][ii++]=createQuad(
+                i/10,
+                j/10,
+                0,
+                0.05
+            );
+        }
+
+        /* --------------------
+           7 Vertical XZ
+        -------------------- */
+
+        ii=0;
+
+        for(let i=-40;i<=39;i++)
+        for(let k=-50;k<=49;k++){
+
+            this.NewQuads[7][ii++]=createQuad(
+                i/10,
+                0,
+                k/10,
+                0.05
+            );
+        }
+
+        /* --------------------
+           8 Circle
+        -------------------- */
+
+        for(let i=0;i<CObj;i++){
+
+            let t=(i+1)*PI/4000;
+
+            this.NewQuads[8][i]=createQuad(
+                5*Math.cos(t),
+                5*Math.sin(t),
+                0,
+                0.05
+            );
+        }
+
+        /* --------------------
+           9 Lissajous
+        -------------------- */
+
+        for(let i=0;i<CObj;i++){
+
+            let t=i+1;
+
+            this.NewQuads[9][i]=createQuad(
+                5*Math.cos(t*PI/4000),
+                5*Math.sin(t*2*PI/4000),
+                0,
+                0.05
+            );
+        }
+
+        /* --------------------
+           10 Concentric spheres
+        -------------------- */
+
+        ii=0;
+
+        for(let i=1;i<=40;i++)
+        for(let j=1;j<=40;j++)
+        for(let k=1;k<=5;k++){
+
+            this.NewQuads[10][ii++]=createQuad(
+                (k/3)*Math.cos(i*PI/20)*Math.sin(j*PI/20),
+                (k/3)*Math.sin(i*PI/20)*Math.sin(j*PI/20),
+                (k/3)*Math.cos(j*PI/20),
+                0.05
+            );
+        }
+
+        /* --------------------
+           11 Additional sphere
+           (как в Delphi)
+        -------------------- */
+
+        ii=0;
+
+        for(let i=1;i<=40;i++)
+        for(let j=1;j<=40;j++)
+        for(let k=1;k<=5;k++){
+
+            this.NewQuads[11][ii++]=createQuad(
+                (k/3)*Math.cos(i*PI/20)*Math.sin(j*PI/20),
+                (k/3)*Math.sin(i*PI/20)*Math.sin(j*PI/20),
+                (k/3)*Math.cos(j*PI/20),
+                0.05
+            );
+        }
+    }
+
+    /* ==================================
+       Delphi TQuads.Move
+    ================================== */
+
+    move(){
+
+        let anim0=true;
+        let target=this.NewQuads[this.anim];
+
+        for(let i=0;i<CObj;i++){
+
+            let q=this.Quads[i];
+            let t=target[i];
+
+            let dx=q.x-t.x;
+            let dy=q.y-t.y;
+            let dz=q.z-t.z;
+
+            let dist=Math.sqrt(dx*dx+dy*dy+dz*dz);
+
+            if(dist>0.05 && dist>this.speed){
+
+                anim0=false;
+
+                q.x -= (dx/dist)*this.speed;
+                q.y -= (dy/dist)*this.speed;
+                q.z -= (dz/dist)*this.speed;
+
+            }else{
+
+                q.x=t.x;
+                q.y=t.y;
+                q.z=t.z;
+            }
+        }
+
+        if(anim0){
+            if(Math.random()+this.speed>0.95){
+                this.anim=Math.floor(Math.random()*MAX_ANIM);
+            }
+        }
+    }
+}
+
+/* ============================
+   Canvas
+============================ */
+
+const canvas=document.getElementById("glcanvas");
+const ctx=canvas.getContext("2d");
+
+function resize(){
+    canvas.width=innerWidth;
+    canvas.height=innerHeight;
+}
+
+addEventListener("resize",resize);
+resize();
+
+/* ============================
+   Scene
+============================ */
+
+const FixQuads=new TQuads();
+
+let angle=0;
+
+const info=document.getElementById("info");
+
+/* ============================
+   Projection
+============================ */
+
+function rotateX(p,a){
+    let c=Math.cos(a);
+    let s=Math.sin(a);
+
+    return {
+        x:p.x,
+        y:p.y*c-p.z*s,
+        z:p.y*s+p.z*c
+    };
+}
+
+function rotateY(p,a){
+    let c=Math.cos(a);
+    let s=Math.sin(a);
+
+    return {
+        x:p.x*c+p.z*s,
+        y:p.y,
+        z:-p.x*s+p.z*c
+    };
+}
+
+function rotateZ(p,a){
+    let c=Math.cos(a);
+    let s=Math.sin(a);
+
+    return {
+        x:p.x*c-p.y*s,
+        y:p.x*s+p.y*c,
+        z:p.z
+    };
+}
+
+function project(x,y,z){
+
+    const cameraZ=15;
+
+    let zz=z+cameraZ;
+
+    let f=500/zz;
+
+    return {
+        x:canvas.width*0.5 + x*f,
+        y:canvas.height*0.5 - y*f,
+        s:f
+    };
+}
+
+/* ============================
+   Render
+============================ */
+
+function render(){
+
+    ctx.fillStyle="black";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    const ax=angle*0.008;
+    const ay=angle*0.017;
+    const az=angle*0.013;
+
+    ctx.fillStyle="white";
+
+    for(let i=0;i<CObj;i++){
+
+        let q=FixQuads.Quads[i];
+
+        let p={x:q.x,y:q.y,z:q.z};
+
+        p=rotateX(p,ax);
+        p=rotateY(p,ay);
+        p=rotateZ(p,az);
+
+        let s=project(p.x,p.y,p.z);
+
+        if(s.s<=0) continue;
+
+        let size=Math.max(1,q.size*s.s*0.5);
+
+        ctx.fillRect(
+            s.x-size*0.5,
+            s.y-size*0.5,
+            size,
+            size
+        );
+    }
+
+    info.textContent=
+        "Mode: "+FixQuads.anim+
+        " | Speed: "+FixQuads.speed.toFixed(4)+
+        " | Keys: 0-9, `, +, -";
+}
+
+/* ============================
+   Keyboard
+============================ */
+
+window.addEventListener("keydown",(e)=>{
+
+    const k=e.key;
+
+    if(k>='0' && k<='9'){
+        FixQuads.anim=parseInt(k);
+    }
+
+    if(k==='`' || k==='~'){
+        FixQuads.anim=10;
+    }
+
+    if(k==='+' || k==='='){
+        FixQuads.speed*=1.1;
+    }
+
+    if(k==='-'){
+        FixQuads.speed*=0.9;
+    }
+
+    if(FixQuads.speed>1){
+        FixQuads.speed=1;
+    }
+
+    if(FixQuads.speed<(1/300)){
+        FixQuads.speed=1/300;
+    }
+});
+
+/* ============================
+   Main loop
+============================ */
+
+function animate(){
+
+    FixQuads.move();
+
+    angle+=1;
+
+    if(angle>=360){
+        angle-=360;
+    }
+
+    render();
+
+    requestAnimationFrame(animate);
+}
+
+animate();
+</script>
+
+</body>
+</html>
