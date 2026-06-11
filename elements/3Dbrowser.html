@@ -311,8 +311,8 @@
             let move = new THREE.Vector3(0, 0, 0);
             if (keyState.w) move.add(forward);
             if (keyState.s) move.sub(forward);
-            if (keyState.d) move.add(right);
-            if (keyState.a) move.sub(right);
+            if (keyState.a) move.add(right);
+            if (keyState.d) move.sub(right);
             move.multiplyScalar(actualSpeed);
             camera.position.add(move);
             // Небольшое ограничение по границам сцены
