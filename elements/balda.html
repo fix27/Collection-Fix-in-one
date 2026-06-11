@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>БАЛДА</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Unbounded:wght@400;700;900&family=Inter:wght@400;500;600&display=swap');
+
+  :root {
+    --bg: #0f0f13;
+    --surface: #1a1a24;
+    --surface2: #22222f;
+    --border: #2e2e40;
+    --accent: #e8c547;
+    --accent2: #7c6dfa;
+    --p1: #4fa3e0;
+    --p2: #5dce82;
+    --p3: #e05c5c;
+    --p4: #e0a04f;
+    --text: #eeeef5;
+    --muted: #7a7a9a;
+    --cell: 56px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  header {
+    width: 100%;
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+  }
+
+  .logo span { color: var(--accent2); }
+
+  /* ======= SCREENS ======= */
+  .screen { display: none; width: 100%; max-width: 720px; padding: 32px 16px; }
+  .screen.active { display: flex; flex-direction: column; align-items: center; gap: 24px; }
+
+  /* ======= SETUP ======= */
+  .setup-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .setup-title {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .field-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .field-label {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .word-input {
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 22px;
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .word-input:focus { border-color: var(--accent); }
+  .word-input.error { border-color: var(--p3); }
+
+  .input-hint {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .input-hint.warn { color: var(--p3); }
+
+  .size-display {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .size-num {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--accent);
+    min-width: 40px;
+    text-align: center;
+  }
+
+  .players-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .player-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    user-select: none;
+  }
+
+  .player-toggle:hover { border-color: var(--accent2); }
+  .player-toggle.active { border-color: var(--accent); background: #1e1e2e; }
+
+  .player-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .dot-1 { background: var(--p1); }
+  .dot-2 { background: var(--p2); }
+  .dot-3 { background: var(--p3); }
+  .dot-4 { background: var(--p4); }
+
+  .player-name { font-size: 13px; font-weight: 600; flex: 1; }
+
+  .player-mode {
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--border);
+    padding: 2px 7px;
+    border-radius: 20px;
+  }
+
+  .player-toggle.active .player-mode { background: var(--accent2); color: #fff; }
+
+  .btn {
+    background: var(--accent);
+    color: #0f0f13;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 32px;
+    font-family: 'Unbounded', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: transform 0.12s, opacity 0.2s;
+    outline: none;
+  }
+
+  .btn:hover { transform: scale(1.03); }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled { opacity: 0.4; cursor: default; transform: none; }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  /* ======= GAME SCREEN ======= */
+  #game-screen {
+    max-width: 900px;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .board-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+
+  #board {
+    display: grid;
+    gap: 3px;
+    background: var(--border);
+    border-radius: 12px;
+    padding: 6px;
+    border: 2px solid var(--border);
+  }
+
+  .cell {
+    width: var(--cell);
+    height: var(--cell);
+    background: var(--surface);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Unbounded', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    cursor: default;
+    transition: background 0.15s, color 0.15s, transform 0.1s;
+    position: relative;
+    user-select: none;
+  }
+
+  .cell.empty { color: transparent; }
+  .cell.preview { background: #2a2040; color: var(--accent); cursor: pointer; }
+  .cell.preview:not(:empty) { font-size: 18px; opacity: 0.85; }
+  .cell.preview:hover { background: #352a55; transform: scale(1.06); }
+  .cell.placed { background: var(--accent2); color: #fff; animation: pop 0.25s; }
+
+  @keyframes pop {
+    0% { transform: scale(0.7); }
+    60% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+
+  /* ======= SIDE PANEL ======= */
+  .side-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 240px;
+    min-width: 200px;
+  }
+
+  .players-status {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .player-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1.5px solid transparent;
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .player-card.current {
+    border-color: var(--accent);
+    background: #1e1e10;
+  }
+
+  .player-card .pdot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .player-card .pname {
+    font-size: 13px;
+    font-weight: 600;
+    flex: 1;
+  }
+
+  .player-card .pscore {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--accent);
+  }
+
+  .player-card .ptype {
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .word-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .word-panel label {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .word-field {
+    background: var(--surface2);
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 18px;
+    font-family: 'Unbounded', sans-serif;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .word-field:focus { border-color: var(--accent2); }
+
+  .word-status {
+    font-size: 12px;
+    min-height: 18px;
+  }
+
+  .word-status.ok { color: var(--p2); }
+  .word-status.bad { color: var(--p3); }
+  .word-status.info { color: var(--muted); }
+
+  .submit-btn {
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+
+  /* ======= LOG ======= */
+  .log-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .log-title {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .log-entries {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 180px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .log-entry {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 5px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .log-entry.p1 { background: #1a2535; }
+  .log-entry.p2 { background: #1a2a22; }
+  .log-entry.p3 { background: #2a1a1a; }
+  .log-entry.p4 { background: #2a2218; }
+  .log-entry.sys { background: var(--surface2); color: var(--muted); }
+
+  .log-entry .lword { font-weight: 700; letter-spacing: 0.05em; }
+  .log-entry .lpts {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 11px;
+    color: var(--accent);
+    margin-left: auto;
+  }
+
+  /* ======= RESULT ======= */
+  #result-screen {
+    max-width: 480px;
+  }
+
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 36px 32px;
+    width: 100%;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .result-trophy {
+    font-size: 64px;
+  }
+
+  .result-title {
+    font-family: 'Unbounded', sans-serif;
+    font-size: 24px;
+    font-weight: 900;
+    color: var(--accent);
+  }
+
+  .result-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .result-table td {
+    padding: 8px 12px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .result-table tr:last-child td { border-bottom: none; }
+
+  .result-table .winner-row td { color: var(--accent); font-weight: 700; }
+
+  .ai-thinking {
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    padding: 8px;
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    :root { --cell: 44px; }
+    #game-screen { flex-direction: column; }
+    .side-panel { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">БАЛ<span>ДА</span></div>
+</header>
+
+<!-- SETUP SCREEN -->
+<div id="setup-screen" class="screen active">
+  <div class="setup-card">
+    <div class="setup-title">Стартовое слово</div>
+    <div class="field-row">
+      <div class="field-label">Введите слово (3–10 букв)</div>
+      <input id="start-word" class="word-input" type="text" maxlength="10" placeholder="БАЛДА" autocomplete="off" spellcheck="false">
+      <div id="word-hint" class="input-hint">Слово должно быть в словаре. Размер поля: <strong id="grid-size-label">5×5</strong></div>
+    </div>
+  </div>
+
+  <div class="setup-card">
+    <div class="setup-title">Игроки</div>
+    <div class="players-grid">
+      <div class="player-toggle active" id="toggle-1" onclick="togglePlayer(1)">
+        <div class="player-dot dot-1"></div>
+        <div class="player-name">Игрок 1</div>
+        <div class="player-mode" id="mode-1">Человек</div>
+      </div>
+      <div class="player-toggle active" id="toggle-2" onclick="togglePlayer(2)">
+        <div class="player-dot dot-2"></div>
+        <div class="player-name">Игрок 2</div>
+        <div class="player-mode" id="mode-2">Человек</div>
+      </div>
+      <div class="player-toggle" id="toggle-3" onclick="togglePlayer(3)">
+        <div class="player-dot dot-3"></div>
+        <div class="player-name">Игрок 3</div>
+        <div class="player-mode" id="mode-3">Выкл.</div>
+      </div>
+      <div class="player-toggle" id="toggle-4" onclick="togglePlayer(4)">
+        <div class="player-dot dot-4"></div>
+        <div class="player-name">Игрок 4</div>
+        <div class="player-mode" id="mode-4">Выкл.</div>
+      </div>
+    </div>
+    <div class="input-hint">Нажмите раз = Человек, ещё раз = Компьютер, ещё раз = Выкл.</div>
+  </div>
+
+  <button class="btn" id="start-btn" onclick="startGame()">НАЧАТЬ ИГРУ</button>
+</div>
+
+<!-- GAME SCREEN -->
+<div id="game-screen" class="screen">
+  <div class="board-wrap">
+    <div id="board"></div>
+    <div id="ai-msg" class="ai-thinking" style="display:none">🤖 Компьютер думает…</div>
+  </div>
+  <div class="side-panel">
+    <div class="players-status" id="players-status"></div>
+    <div class="word-panel" id="word-panel">
+      <label>Ваше слово</label>
+      <input id="word-input" class="word-field" type="text" maxlength="20" autocomplete="off" spellcheck="false" placeholder="введите слово">
+      <div id="word-status" class="word-status info">Введите слово, затем кликните ячейку</div>
+      <button class="btn submit-btn" onclick="submitWord()">ПОДТВЕРДИТЬ</button>
+    </div>
+    <div class="log-panel">
+      <div class="log-title">Ход игры</div>
+      <div class="log-entries" id="log-entries"></div>
+    </div>
+  </div>
+</div>
+
+<!-- RESULT SCREEN -->
+<div id="result-screen" class="screen">
+  <div class="result-card">
+    <div class="result-trophy">🏆</div>
+    <div class="result-title" id="result-title">Игра окончена!</div>
+    <table class="result-table" id="result-table"></table>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+      <button class="btn" onclick="newGame()">НОВАЯ ИГРА</button>
+      <button class="btn btn-secondary" onclick="showScreen('setup-screen')">НАСТРОЙКИ</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== DICTIONARY ====================
+// Compact built-in Russian dictionary (common words, grouped by length)
+const DICT_RAW = `
+БАЛДА БОКАЛ БОРЕЦ ВОЛНА ГОРОД ГОРА ДИВАН ДОМИК ДОЧКА ДРОВА ДЯДЯ ЕЖИК ЖАБА ЗИМА ЗОНТ ИКРА КАРП КАША КЛЕН КНИГА КОШКА ЛАМПА ЛИМАН ЛИСА ЛОЖКА ЛУНА ЛЬГОТА МАСКА МЕСЯЦ МЫШКА НОРКА НОТА ОКНО ОРЕЛ ПЕЧЬ ПИРОГ ПЛАВАНИЕ ПЛИТА ПОЛЕ ПОРТ ПТИЦА ПУШКА РЕКА РОГА РОЗА РЫБА СЕМЬЯ СКАЛА СЛИВА СЛОН СНЕГ СОВА СОЛЬ СОСНА СТОЛ СТРАНА СУКА ТАПОК ТЕАТР ТЕЛО ТИГР ТОВАР ТРАВА ТУМАН УТРО ФАКЕЛ ФОТО ХЛЕБ ЦВЕТ ЦИРК ЧАСТЬ ЧАШКА ЧЕРТА ЧЕХОЛ ШАПКА ШКАЛА ШКОЛА ЯБЛОКО ЯГОДА ЯРМО
+БАНАН БЕРЕГ ВЕТЕР ВИЛКА ВИРУС ВИШНЯ ВОБЛА ВОПРОС ГАРАЖ ГРИБ ГРУША ГУБКА ДЕРЕВО ЕЖЕВИКА ЖИРАФ ЗАКАТ ЗАМОК ЗАЯЦ ЗЕБРА ЗЕМЛЯ ЗЕРНО ЗМЕЯ ИРИС КАБАН КАЗАК КАМЕНЬ КАПЛЯ КАРЕТА КАЧЕЛИ КЛЕТКА КЛЮКВА КОВЕР КОЗЕЛ КОЛОС КОНЬ КОРЕНЬ КОРОНА КРОТ КУКЛА КУЛАК КУПОЛ ЛЕБЕДЬ ЛИМОН ЛИСИЦА ЛОДКА ЛУЖА МАЙОР МАЛИНА МАЯК МЕТЕЛЬ МИШЕНЬ МОРОЗ МОСТОК МОТИВ МОТОР МЫШЬ НАЗАД НАЛОГ НАСОС НЕБО НЕРПА НИТКА НОГА НОРИЯ НОРОВ ОБЛАКО ОВРАГ ОГОНЬ ОДИН ОЗЕРО ОЛЕНОК ОПАСНОСТЬ ОРЕХ ОСИНА ОТРЯД ОЧАГ ПАРУС ПАСЕКА ПЕВЕЦ ПЕПЕЛ ПЕРЕЦ ПЕРИОД ПЕЩЕРА ПИОН ПИРАТЫ ПИТОН ПЛЕЧО ПЛИТА ПОВОД ПОЖАР ПОМОЩЬ ПОРА ПОРОДА ПОРОШОК ПРАВДА ПРИБОЙ ПРУД ПТЕНЕЦ ПУТНИК РАМКА РЕБУС РЕЛИКТ РОМАН САЙГАК САЛЮТ САМЕЦ САРАЙ САТИН СВАТЬЯ СВЕЧА СЕРДЦЕ СЕТКА СИРОТА СКАТЕРТЬ СКОРОСТЬ СЛЕЗА СЛОВО СМЕРТЬ СМЕТАНА СНЕЖОК СОСЕД СПИНА СТАЯ СТЕБЕЛЬ СТРЕЛА СУДЬБА СУРОК СЫТЫЙ ТАЙГА ТАРЕЛКА ТЕСТО ТЕТЕРЕВ ТОПОЛЬ ТРОСТНИК ТУМАН УБЫТОК УЗЕЛ УЛИТКА УМНИК УРОК УТКА УХАБ ФАСОЛЬ ФИГУРА ФЛАГ ФОРЕЛЬ ХОЛМ ХОМЯК ХОРЕК ЦАПЛЯ ЦЕПЬ ЧАЙКА ЧАСОВОЙ ЧЕМОДАН ЧИНОВНИК ШАЛАШ ШАРИК ШМЕЛЬ ШТОРА ЩЕТКА ЩУКА ЮБКА ЯЙЦО ЯКОРЬ ЯНТАРЬ
+АДА АЛА АНА АРА БАБ БАЛ БАР БОБ БОЛ БОМ БОР ВАЗ ВАЛ ВАР ВОЛ ВОР ГАЗ ГАЛ ГАЗ ДАЛ ДАМ ДАЧ ДОМ ДОН ДОЧ ЗАЛ ЗОЛ КАЛ КАН КОЛ КОМ КОН КОТ КОЧ КУЛ ЛАД ЛАЗ ЛАК ЛАН ЛАЧ ЛОБ ЛОГ ЛОД ЛОЖ ЛОЗ ЛОМ ЛОС ЛОТ ЛУГ ЛУЖ ЛУК ЛУЧ МАГ МАЗ МАК МАЛ МАН МАР МАТ МАЧ МАЯ МОЛ МОМ МОП МОС МОТ МОЧ МОЯ НАМ НАС НОЖ НОС ОАК ОАЛ ОБА ОВА ОВЕ ОВИ ОВО ОВС ОВЧ ОГА ОДА ОЖЕ ОЗА ОКА ОКЕ ОКО ОЛА ОМА ОМЕ ОМИ ОМО ОМУ ОНА ОНЕ ОНИ ОНО ОНУ ОПА ОРА ОРЕ ОРО ОСА ОСЕ ОСИ ОСО ОСТ ОТА ОТЕ ОТИ ОТО ОТУ ОФА ОХА ОЦА ОЧА ОША ОЮА ПАЗ ПАЛ ПАР ПАТ ПАЧ ПОЛ ПОМ ПОН ПОП ПОР ПОТ РАБ РАД РАЗ РАК РАМ РАН РАТ РАЧ РОГ РОД РОЖ РОК РОМ РОС РОТ РОЧ РОЯ РУЛ РУН РУС СОЖ СОК СОЛ СОМ СОН СОР СОС СОТ СОЧ СОЯ СУД СУК СУМ СУП ТАЗ ТАЛ ТАМ ТАП ТАС ТАЧ ТОЗ ТОК ТОЛ ТОМ ТОН ТОП ТОР ТОС ТОТ ТОЧ ТОЯ ТУК ТУЛ ТУН ТУП УЖЕ УЗА УЗЕ УЗИ ФАЗ ФАЛ ФАН ФАР ФАТ ХАН ХОД ХОЗ ХОМ ХОР ЦАП ЦАР ЦАТ ЧАД ЧАН ЧАС ЧАТ ЧАЧ ШАГ ШАЛ ШАН ШАР ШАТ ШОК ЮЛА ЯМА ЯРЛ
+АИСТ АКУЛ АЛОЭ АЛТАРЬ АМБА АМУР АНИС АНКЕР АНТРЕ АОРТА АРБУЗ АРЕНА АРХИВ АРШИН АСПИД АСТРА АТЛАС БАБКА БАДЬЯ БАЙКА БАЛКА БАЛОК БАНКА БАРАН БАРИН БАРКА БАТОН БАТРАК БЕГУН БЕДА БЕДРО БЕЗУМ БЕЛКА БЕРЕТ БЕРЛО БЕРТА БЕТОН БИНТ БИТОК БЛЕСК БЛОХА БЛЮДО БОБЕР БОБИК БОГАЧ БОЛИД БОЛТ БОЛТУН БОРОДА БОРТ БОРЩ БОЧКА БРАГА БРАЛЬ БРАНД БРАТАН БРЕВНО БРЕТЕЛЬ БРОД БРОНЯ БУДКА БУЙВОЛ БУНТ БУРКА БУСЫ БУТОН БЫЧОК ВАГОН ВАХТА ВДОВА ВЕЛИК ВЕНИК ВЕРБА ВЕРЕСК ВЕРП ВЕРША ВЕСЛО ВЕЧЕР ВЗЯТОК ВИДЕО ВИЛЫ ВИТОЙ ВКЛАД ВОБЛА ВОДКА ВОДОЕМ ВОДЯНОЙ ВОЖАК ВОЗОК ВОЙЛОК ВОЛОС ВОНЬ ВОПРОС ВОРОН ВОРОТА ВОСХОД ВЬЮГА ГАВАНЬ ГАДЮКА ГАЙКА ГАЛЕРА ГАЛКА ГАНОК ГАРОМ ГАРПУН ГЕНЕРАЛ ГИЕНА ГИЛЬЗА ГЛЫБА ГНЕВ ГНИДА ГОБОЙ ГОНЕЦ ГОНКА ГОРЛО ГОСТЬ ГРАВИЙ ГРИВА ГРИФ ГРОЗА ГРОМ ГРУДЬ ГУСАК ГУСЛЯ ГУСЬ ДАМБА ДЕБРИ ДЕНЕК ДЕНЬГИ ДЕРЕВНЯ ДЖУТ ДИЧЬ ДНИЩЕ ДОБЫЧА ДОЛИНА ДОСКА ДОЧУРКА ДРОЗД ДРОФА ДУБОК ДУГОЙ ДУМАТЬ ДЫМОК ДЯТЕЛ ЕЖИХА ЕЛКА ЖАРКО ЖАСМИН ЖИВОЙ ЖИЛЕТ ЖУРНАЛ ЗАБОР ЗАВОД ЗАКОН ЗАЛИВ ЗАЛО ЗАРЕВО ЗЕРКАЛО ЗЕФИР ЗЛОДЕЙ ЗНАМЯ ЗОЛОТО ЗУБРОК ЗУБР ЗУБРИЛА ИВОЛГА ИГРОК ИГОЛКА ИЗГИБ ИЗЮМ ИКОНА ИЛОТ ИМЕНИЕ ИНЖИР ИРБИС КАВАЛЕР КАЗУС КАКТУС КАЛАЧ КАПКАН КАРАВАЙ КАРАСЬ КАРМИН КАРНИЗ КАРП КАРУСЕЛЬ КАСАТКА КАТЕР КАЧКА КАЮТА КАЯК КЕВЛАР КЕДР КЕФАЛЬ КИБИТКА КИЛЬКА КИМОНО КИПРЕЙ КИСЕЛЬ КИСЕТ КЛЕВЕР КЛОУН КЛЯЧА КОБРА КОБЫЛА КОВШ КОЗАК КОЗЕЛ КОЗЛЕНОК КОЗЛОВСКИЙ КОЗЛЫ КОЛБА КОЛЕСО КОЛИБРИ КОЛОДА КОЛОС КОМАР КОНИКА КОПЫТО КОРОБКА КОРЕНЬ КОРОМЫСЛО КОРУНД КОСЯК КОТЕЛ КРАПИВА КРАСОТА КРЕМЕНЬ КРЕСТ КРЫСА КУМЫС КУПЕЦ КУПОЛ КУПОЛ КУШАК ЛАДЬЯ ЛАКЕЙ ЛАРЕК ЛАСКА ЛЕБЕДЬ ЛЕЩ ЛЕЩИНА ЛИНЗА ЛИНИЯ ЛИСЕЛЬ ЛИСТОК ЛИТИЯ ЛИХАЧ ЛОБЗИК ЛОВЛЯ ЛОСКУТ ЛОТОС ЛОХАНЬ ЛОШАДЬ ЛУГОВИНА ЛУКОШКО ЛУНКА ЛУПА ЛУТЕНЬ ЛУЧНИК ЛЫЖНЯ ЛЫСИНА ЛЯЖКА МАГНИТ МАЗУРКА МАНДАРИН МАНОК МАНТИЯ МАРАСК МАРЕВО МАРЖА МАРКИЗА МАСКА МАСТЕР МАТРОС МАХИНА МЕДВЕДЬ МЕЖА МЕККА МЕРИН МЕТЛА МЕШОК МЕЧТА МИНДАЛЬ МИРАЖ МИТРА МОЗОЛЬ МОНАХ МОХНАТЫЙ МРАМОР МУЛЛ МУСКУС МУТОН МУФТА МЫШЛЕНИЕ НАБЕГ НАБОЙ НАВЕС НАВОЗ НАГОТА НАГРЕВ НАДЕЛ НАЛЕДЬ НАЛИМ НАПЕВ НАРОСТ НАСМОРК НАСТ НАТУРА НАХАЛ НАЧАЛО НЕВОД НЕРЕСТ НИТЬ НОЯБРЬ ОБРАЗ ОБРУЧ ОВЕН ОВОЩ ОГРЕХ ОДУВАНЧИК ОЖИВЛЕНИЕ ОКЛАД ОКРАС ОЛЕНИНА ОЛИВА ОПЕКА ОПОРА ОПЫТ ОРДА ОРУДИЕ ОСЕЛОК ОСТРОВ ОСЫПЬ ОТВАР ОТДАЧА ОТРУБИ ОТРЫВОК ОХОТА ОЧЕРЕДЬ ПАРОМ ПАХАРЬ ПАШНЯ ПЕЙЗАЖ ПЕЛИКАН ПЕНЕК ПЕНЬЮАР ПЕРГОН ПЕРЕЙТИ ПЕРЛОВКА ПЕРМЬ ПЕТЛЯ ПИКНИК ПИЯВКА ПЛАТОК ПЛОТЬ ПЛУГ ПЛЯСУН ПОБЕДА ПОДВИГ ПОЗОР ПОЛЕНО ПОЛЕТ ПОЛИВА ПОЛУКРУГ ПОЛЬЗА ПОМОСТ ПОПУГАЙ ПОРЫВ ПОРЯДОК ПОСТЕЛЬ ПОСУДА ПОТОМОК ПОХОД ПРИЕМ ПРИКАЗ ПРИТОК ПРОБКА ПРОГУЛ ПРОЛОМ ПРОПАСТЬ ПРОТЕСТ ПРОЧНОСТЬ ПРУТИК ПСИНА ПУГОВИЦА ПУТИНА ПЧЕЛА РАПИРА РАСХОД РАЦИЯ РЕБЕНОК РЕДЬКА РЕЙТИНГ РЕПЕЙ РЕТИВЫЙ РЕФЛЕКС РЕЦЕПТ РОГАТКА РОДНИК РОИТСЯ РУБЕЖ РУБЕЦ РУБИН РУДНИК РУКАВ РЫСАК РЫТВИНА РЯБИНА РЯБЬ САЗАН САЙГА САРАФАН САРНА САТИН СВАДЬБА СВЕРЧОК СВИСТ СВИТА СГУСТОК СЕКИРА СЕННИК СЕТКА СИВОДОЙ СИРЕНЬ СКАКУН СКАМЕЙКА СКАТЕРТЬ СКИРДА СКОПА СКОРПИОН СКРИПКА СЛОЙКА СМЕЛОСТЬ СМОКИНГ СНОП СОБАКА СОБОЛЬ СОВЕТ СОЗЫВ СОКОЛ СОЛОМЕННЫЙ СОРОКА СПИРАЛЬ СПИСОК СТАВОК СТАЛАГМИТ СТЕЛЛА СТОЙКА СТОЛБ СТОПКА СТРИЖ СТРОЙ СТУПА СТЯЖКА СУБОТА СУНДУК СУРОК СУТАНА СЫВОРОТКА СЫНОК СЫПЬ ТАЙНИК ТАРАКАНЫ ТАРАНЬ ТЕЛЕНОК ТЕСЬМА ТИМЬЯН ТИРАЖ ТЛЕТЬ ТОРОС ТОРФ ТОТЕМ ТОЩИЙ ТРЕСНЯ ТРУБКА ТРУСОСТЬ ТУЛУП ТУНИКА ТУСКЛЫЙ ТЫКВА УГОРЬ УДАР УЗНИК УЛЬЯН УМЕНИЕ УПОР УТЕХА УТОК ФАЗАН ФАЛДА ФАРФОР ФАСАД ФАХВЕРК ФЕНИКС ФИАЛКА ФИГОВЫЙ ФИКУС ФЛОРА ФЛЯГА ФОРМА ФОРПОСТ ФОТОН ХВОСТ ХИЖИНА ХЛОПОК ХЛОРКА ХМЕЛЬ ХОЛОД ХОМУТ ХОРОВОД ХОРУНЖИЙ ХОХЛАТЫЙ ХРЕБЕТ ХРЕН ХРУСТАЛЬНЫЙ ЦАПФА ЦЕЛОСТЬ ЦЕПНАЯ ЦЕПОЧКА ЦИТАДЕЛЬ ЦИФРА ЧАБЕР ЧАЛМА ЧАРКА ЧЕСНОК ЧЕХОЛ ЧИРОК ЧИСТОТА ЧУЧЕЛО ШАКАЛ ШАЛУН ШАТУН ШАФЕР ШЕЛЕСТ ШЕРШЕНЬ ШИЛОС ШИНЕЛЬ ШИРИНА ШКАТУЛКА ШНУР ШТАБ ШТАТ ШТИЛЬ ШТРАФ ЩИПОК ЩУКА ЭХИДНА ЮНГА ЯГНЕНОК ЯКОРЬ ЯНТАРЬ
+`.trim();
+
+const DICTIONARY = new Set();
+DICT_RAW.split(/\s+/).forEach(w => {
+  w = w.trim().toUpperCase();
+  if (w.length > 0) DICTIONARY.add(w);
+});
+
+function inDict(w) { return DICTIONARY.has(w.toUpperCase()); }
+
+// ==================== STATE ====================
+let GRID_W = 5, GRID_H = 5;
+let grid = []; // grid[row][col] = char or ''
+let startWord = 'БАЛДА';
+
+const PLAYER_COLORS = ['var(--p1)', 'var(--p2)', 'var(--p3)', 'var(--p4)'];
+const PLAYER_COLOR_NAMES = ['p1','p2','p3','p4'];
+
+// Player state: { active, isComputer, score, words, name }
+let players = [];
+let currentPlayer = 0;
+let usedWords = new Set();
+let selectedCell = null; // {row, col}
+let previewLetter = ''; // letter being typed into a cell
+let wordMatchCells = []; // [{row, col, letter}] all valid placements for current word
+let gameOver = false;
+let aiTimeout = null;
+
+// Setup: player modes 0=off, 1=human, 2=computer
+let playerModes = [1, 1, 0, 0];
+
+function togglePlayer(idx) {
+  const i = idx - 1;
+  playerModes[i] = (playerModes[i] + 1) % 3;
+  const tog = document.getElementById(`toggle-${idx}`);
+  const modeEl = document.getElementById(`mode-${idx}`);
+  const modes = ['Выкл.', 'Человек', 'Комп.'];
+  modeEl.textContent = modes[playerModes[i]];
+  if (playerModes[i] === 0) {
+    tog.classList.remove('active');
+  } else {
+    tog.classList.add('active');
+  }
+}
+
+// ==================== SETUP SCREEN ====================
+document.getElementById('start-word').addEventListener('input', function() {
+  const w = this.value.toUpperCase();
+  this.value = w;
+  const n = w.length;
+  const hint = document.getElementById('word-hint');
+  const sizeLabel = document.getElementById('grid-size-label');
+  const btn = document.getElementById('start-btn');
+  sizeLabel.textContent = n >= 3 ? `${n}×${n}` : '?×?';
+  if (n < 3) {
+    hint.textContent = `Нужно минимум 3 буквы.`;
+    hint.className = 'input-hint warn';
+    btn.disabled = true;
+  } else if (n > 10) {
+    hint.textContent = 'Не более 10 букв.';
+    hint.className = 'input-hint warn';
+    btn.disabled = true;
+  } else {
+    const found = inDict(w);
+    hint.textContent = found
+      ? `✓ Слово найдено. Поле: ${n}×${n}`
+      : `Слово «${w}» не в словаре, но можно играть. Поле: ${n}×${n}`;
+    hint.className = found ? 'input-hint' : 'input-hint warn';
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('start-word').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') startGame();
+});
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ==================== GAME INIT ====================
+function startGame() {
+  const wInput = document.getElementById('start-word').value.toUpperCase().trim();
+  if (!wInput || wInput.length < 3 || wInput.length > 10) return;
+  startWord = wInput;
+  GRID_W = wInput.length;
+  GRID_H = wInput.length;
+
+  // Init grid
+  grid = [];
+  for (let r = 0; r < GRID_H; r++) {
+    grid.push(Array(GRID_W).fill(''));
+  }
+
+  // Place start word horizontally in the middle row
+  const midRow = Math.floor(GRID_H / 2);
+  for (let c = 0; c < GRID_W; c++) {
+    grid[midRow][c] = startWord[c];
+  }
+
+  // Init players
+  players = [];
+  let hasActive = false;
+  for (let i = 0; i < 4; i++) {
+    if (playerModes[i] > 0) {
+      hasActive = true;
+      players.push({
+        id: i,
+        index: players.length,
+        name: `Игрок ${i + 1}`,
+        isComputer: playerModes[i] === 2,
+        score: 0,
+        words: []
+      });
+    }
+  }
+  if (!hasActive) {
+    alert('Включите хотя бы одного игрока!');
+    return;
+  }
+
+  currentPlayer = 0;
+  usedWords = new Set([startWord]);
+  selectedCell = null;
+  previewLetter = '';
+  gameOver = false;
+
+  showScreen('game-screen');
+  renderBoard();
+  renderSidebar();
+  clearLog();
+  addLog(`Начало игры. Слово: ${startWord}`, 'sys');
+
+  document.getElementById('word-input').value = '';
+  document.getElementById('word-status').textContent = 'Введите слово, затем кликните ячейку';
+  document.getElementById('word-status').className = 'word-status info';
+
+  if (aiTimeout) clearTimeout(aiTimeout);
+  scheduleAI();
+}
+
+// ==================== BOARD RENDER ====================
+function renderBoard() {
+  const board = document.getElementById('board');
+  board.style.gridTemplateColumns = `repeat(${GRID_W}, var(--cell))`;
+  board.innerHTML = '';
+
+  for (let r = 0; r < GRID_H; r++) {
+    for (let c = 0; c < GRID_W; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.row = r;
+      cell.dataset.col = c;
+
+      const ch = grid[r][c];
+      if (ch) {
+        cell.textContent = ch;
+      } else {
+        cell.classList.add('empty');
+        cell.textContent = '·';
+      }
+
+      if (selectedCell && selectedCell.row === r && selectedCell.col === c) {
+        cell.classList.add('placed');
+        cell.textContent = previewLetter || '?';
+      } else {
+        // Check if this cell is a valid placement for the current word
+        const match = wordMatchCells.find(m => m.row === r && m.col === c);
+        if (match) {
+          cell.classList.add('preview');
+          cell.classList.remove('empty');
+          cell.textContent = match.letter;
+        } else if (!ch && isAdjacentToAny(r, c)) {
+          cell.classList.add('preview');
+        }
+      }
+
+      cell.addEventListener('click', () => onCellClick(r, c));
+      board.appendChild(cell);
+    }
+  }
+}
+
+function isAdjacentToAny(r, c) {
+  if (grid[r][c]) return false;
+  const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+  for (const [dr, dc] of dirs) {
+    const nr = r + dr, nc = c + dc;
+    if (nr >= 0 && nr < GRID_H && nc >= 0 && nc < GRID_W && grid[nr][nc]) return true;
+  }
+  return false;
+}
+
+function onCellClick(r, c) {
+  if (gameOver) return;
+  const cur = players[currentPlayer];
+  if (cur.isComputer) return;
+
+  const wordInput = document.getElementById('word-input').value.toUpperCase().trim();
+
+  if (!wordInput) {
+    setStatus('Сначала введите слово', 'bad');
+    return;
+  }
+
+  if (grid[r][c]) {
+    setStatus('Эта клетка уже занята', 'bad');
+    return;
+  }
+
+  // Check if this cell is in pre-computed matches
+  const match = wordMatchCells.find(m => m.row === r && m.col === c);
+  if (match) {
+    // Confirm immediately
+    doTurn(wordInput, r, c, match.letter);
+    return;
+  }
+
+  if (!isAdjacentToAny(r, c)) {
+    setStatus('Буква должна быть рядом с существующими буквами', 'bad');
+    return;
+  }
+
+  const result = tryPlaceWord(wordInput, r, c);
+  if (!result) {
+    setStatus(`Слово «${wordInput}» не складывается с буквой в этой клетке`, 'bad');
+    return;
+  }
+
+  selectedCell = { row: r, col: c };
+  previewLetter = result.newLetter;
+  renderBoard();
+  setStatus(`Поставить «${result.newLetter}» — нажмите Enter или кликните снова`, 'ok');
+}
+
+// Find if word can be placed on board using (r,c) as the new cell
+// Returns { newLetter } or null
+function tryPlaceWord(word, newR, newC) {
+  // Try all paths on the board that spell `word` and use (newR,newC) once
+  word = word.toUpperCase();
+  
+  // Find all possible start positions
+  for (let startR = 0; startR < GRID_H; startR++) {
+    for (let startC = 0; startC < GRID_W; startC++) {
+      const result = dfsMatch(word, 0, startR, startC, newR, newC, new Array(GRID_H).fill(null).map(() => new Array(GRID_W).fill(false)), false);
+      if (result !== null) return { newLetter: result };
+    }
+  }
+  return null;
+}
+
+function dfsMatch(word, idx, r, c, newR, newC, visited, usedNew) {
+  if (r < 0 || r >= GRID_H || c < 0 || c >= GRID_W) return null;
+  if (visited[r][c]) return null;
+
+  const isNewCell = (r === newR && c === newC);
+  if (isNewCell && usedNew) return null; // can only use new cell once
+
+  let cellChar = grid[r][c];
+  if (isNewCell) {
+    if (cellChar) return null; // new cell must be empty
+    // new cell's letter = word[idx]
+    cellChar = word[idx];
+  } else {
+    if (!cellChar) return null; // existing cell must have a letter
+    if (cellChar !== word[idx]) return null;
+  }
+
+  if (idx === word.length - 1) {
+    // Must have used the new cell
+    if (!isNewCell && !usedNew) return null;
+    return isNewCell ? word[idx] : 'used'; // we need the new letter
+  }
+
+  visited[r][c] = true;
+  const dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+  for (const [dr, dc] of dirs) {
+    const res = dfsMatch(word, idx + 1, r + dr, c + dc, newR, newC, visited, usedNew || isNewCell);
+    if (res !== null) {
+      visited[r][c] = false;
+      return isNewCell ? word[idx] : res;
+    }
+  }
+  visited[r][c] = false;
+  return null;
+}
+
+// ==================== WORD SUBMISSION ====================
+document.getElementById('word-input').addEventListener('input', function() {
+  const w = this.value.toUpperCase();
+  this.value = w;
+  selectedCell = null;
+  previewLetter = '';
+  wordMatchCells = [];
+
+  if (!w) {
+    setStatus('Введите слово, затем кликните ячейку для новой буквы', 'info');
+  } else if (usedWords.has(w)) {
+    setStatus(`«${w}» уже было сыграно`, 'bad');
+  } else if (!inDict(w)) {
+    setStatus(`«${w}» нет в словаре`, 'bad');
+  } else {
+    // Find all valid placements for this word
+    for (let r = 0; r < GRID_H; r++) {
+      for (let c = 0; c < GRID_W; c++) {
+        if (!grid[r][c] && isAdjacentToAny(r, c)) {
+          const res = tryPlaceWord(w, r, c);
+          if (res) {
+            // Avoid duplicate cells (same cell, same letter)
+            if (!wordMatchCells.find(m => m.row === r && m.col === c)) {
+              wordMatchCells.push({ row: r, col: c, letter: res.newLetter });
+            }
+          }
+        }
+      }
+    }
+    if (wordMatchCells.length > 0) {
+      setStatus(`«${w}» ✓ — кликните подсвеченную клетку`, 'ok');
+    } else {
+      setStatus(`«${w}» не складывается на текущем поле`, 'bad');
+    }
+  }
+  renderBoard();
+});
+
+document.getElementById('word-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') submitWord();
+});
+
+function submitWord() {
+  if (gameOver) return;
+  const cur = players[currentPlayer];
+  if (cur.isComputer) return;
+
+  const wordInput = document.getElementById('word-input').value.toUpperCase().trim();
+  if (!wordInput || !selectedCell) {
+    setStatus('Введите слово и кликните на ячейку для новой буквы', 'bad');
+    return;
+  }
+
+  doTurn(wordInput, selectedCell.row, selectedCell.col, previewLetter);
+}
+
+function doTurn(word, newR, newC, newLetter) {
+  word = word.toUpperCase();
+
+  if (usedWords.has(word)) {
+    addLog(`«${word}» уже использовалось`, 'sys');
+    nextPlayer();
+    return;
+  }
+
+  if (!inDict(word)) {
+    addLog(`«${word}» нет в словаре`, 'sys');
+    nextPlayer();
+    return;
+  }
+
+  // Verify word fits on board
+  const result = tryPlaceWord(word, newR, newC);
+  if (!result) {
+    addLog(`«${word}» не складывается на поле`, 'sys');
+    nextPlayer();
+    return;
+  }
+
+  // Place letter
+  grid[newR][newC] = newLetter;
+  usedWords.add(word);
+
+  const cur = players[currentPlayer];
+  cur.score += word.length;
+  cur.words.push(word);
+
+  addLog(`${cur.name}: ${word} +${word.length}`, PLAYER_COLOR_NAMES[cur.id]);
+
+  selectedCell = null;
+  previewLetter = '';
+  wordMatchCells = [];
+  document.getElementById('word-input').value = '';
+  setStatus('Введите слово, затем кликните ячейку для новой буквы', 'info');
+
+  nextPlayer();
+}
+
+function nextPlayer() {
+  currentPlayer = (currentPlayer + 1) % players.length;
+  renderBoard();
+  renderSidebar();
+  scheduleAI();
+}
+
+// ==================== AI ====================
+function scheduleAI() {
+  if (gameOver) return;
+  const cur = players[currentPlayer];
+  if (!cur.isComputer) {
+    document.getElementById('ai-msg').style.display = 'none';
+    return;
+  }
+  document.getElementById('ai-msg').style.display = 'block';
+  if (aiTimeout) clearTimeout(aiTimeout);
+  aiTimeout = setTimeout(doAITurn, 800);
+}
+
+function doAITurn() {
+  if (gameOver) return;
+  const cur = players[currentPlayer];
+  if (!cur.isComputer) return;
+
+  // Find all empty cells adjacent to filled cells
+  const emptyCells = [];
+  for (let r = 0; r < GRID_H; r++) {
+    for (let c = 0; c < GRID_W; c++) {
+      if (!grid[r][c] && isAdjacentToAny(r, c)) {
+        emptyCells.push({ r, c });
+      }
+    }
+  }
+
+  // Try all dictionary words, find one that fits
+  let bestMove = null;
+  const dictWords = Array.from(DICTIONARY);
+
+  // Shuffle to add variety
+  for (let i = dictWords.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [dictWords[i], dictWords[j]] = [dictWords[j], dictWords[i]];
+  }
+
+  outer:
+  for (const word of dictWords) {
+    if (usedWords.has(word)) continue;
+    if (word.length < 2) continue;
+    for (const { r, c } of emptyCells) {
+      const res = tryPlaceWord(word, r, c);
+      if (res) {
+        bestMove = { word, r, c, letter: res.newLetter };
+        break outer;
+      }
+    }
+  }
+
+  document.getElementById('ai-msg').style.display = 'none';
+
+  if (!bestMove) {
+    addLog(`${cur.name}: пас`, PLAYER_COLOR_NAMES[cur.id]);
+    nextPlayer();
+    // Check if all AIs passed = game over?
+    checkGameOver();
+    return;
+  }
+
+  doTurn(bestMove.word, bestMove.r, bestMove.c, bestMove.letter);
+}
+
+function checkGameOver() {
+  // Check if no empty adjacent cells remain
+  let hasEmpty = false;
+  for (let r = 0; r < GRID_H; r++) {
+    for (let c = 0; c < GRID_W; c++) {
+      if (!grid[r][c] && isAdjacentToAny(r, c)) { hasEmpty = true; break; }
+    }
+    if (hasEmpty) break;
+  }
+  if (!hasEmpty) endGame();
+}
+
+function endGame() {
+  gameOver = true;
+  if (aiTimeout) clearTimeout(aiTimeout);
+
+  players.sort((a, b) => b.score - a.score);
+  const winner = players[0];
+
+  const title = document.getElementById('result-title');
+  title.textContent = `${winner.name} победил!`;
+
+  const table = document.getElementById('result-table');
+  table.innerHTML = '';
+  players.forEach((p, i) => {
+    const row = document.createElement('tr');
+    if (i === 0) row.className = 'winner-row';
+    row.innerHTML = `
+      <td>${i + 1}</td>
+      <td><span style="color:${PLAYER_COLORS[p.id]}">●</span> ${p.name}${p.isComputer ? ' 🤖' : ''}</td>
+      <td>${p.score} очков</td>
+      <td style="color:var(--muted);font-size:11px">${p.words.slice(-3).join(', ')}${p.words.length > 3 ? '…' : ''}</td>
+    `;
+    table.appendChild(row);
+  });
+
+  setTimeout(() => showScreen('result-screen'), 600);
+}
+
+function newGame() {
+  showScreen('setup-screen');
+}
+
+// ==================== SIDEBAR ====================
+function renderSidebar() {
+  const container = document.getElementById('players-status');
+  container.innerHTML = '';
+  players.forEach((p, i) => {
+    const card = document.createElement('div');
+    card.className = 'player-card' + (i === currentPlayer ? ' current' : '');
+    card.innerHTML = `
+      <div class="pdot" style="background:${PLAYER_COLORS[p.id]}"></div>
+      <div>
+        <div class="pname">${p.name}${p.isComputer ? ' 🤖' : ''}</div>
+        <div class="ptype">${i === currentPlayer ? 'Ходит сейчас' : `Слов: ${p.words.length}`}</div>
+      </div>
+      <div class="pscore">${p.score}</div>
+    `;
+    container.appendChild(card);
+  });
+
+  const wordPanel = document.getElementById('word-panel');
+  const cur = players[currentPlayer];
+  wordPanel.style.display = cur && cur.isComputer ? 'none' : 'flex';
+}
+
+// ==================== LOG ====================
+function clearLog() {
+  document.getElementById('log-entries').innerHTML = '';
+}
+
+function addLog(text, cls) {
+  const entries = document.getElementById('log-entries');
+  const el = document.createElement('div');
+  el.className = `log-entry ${cls}`;
+  if (cls !== 'sys') {
+    const parts = text.match(/^(.*?): (.+?) \+(\d+)$/);
+    if (parts) {
+      el.innerHTML = `<span>${parts[1]}</span><span class="lword">${parts[2]}</span><span class="lpts">+${parts[3]}</span>`;
+    } else {
+      el.textContent = text;
+    }
+  } else {
+    el.textContent = text;
+  }
+  entries.appendChild(el);
+  entries.scrollTop = entries.scrollHeight;
+}
+
+// ==================== UTILS ====================
+function setStatus(msg, type) {
+  const el = document.getElementById('word-status');
+  el.textContent = msg;
+  el.className = `word-status ${type}`;
+}
+
+// ==================== INIT ====================
+(function() {
+  const input = document.getElementById('start-word');
+  input.value = 'БАЛДА';
+  input.dispatchEvent(new Event('input'));
+})();
+</script>
+</body>
+</html>
