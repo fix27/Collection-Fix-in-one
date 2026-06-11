@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Аналоговые часы — Turbo Pascal style</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Georgia', 'Times New Roman', serif;
+            overflow: hidden;
+        }
+
+        .clock-container {
+            position: relative;
+            padding: 30px;
+            background: radial-gradient(circle at 50% 40%, #2a3441 0%, #0f172a 80%);
+            border-radius: 50%;
+            box-shadow:
+                0 0 60px rgba(255, 215, 0, 0.15),
+                0 0 120px rgba(0, 0, 0, 0.6),
+                inset 0 0 40px rgba(0, 0, 0, 0.8);
+            border: 2px solid rgba(255, 215, 0, 0.3);
+        }
+
+        canvas {
+            display: block;
+            filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.4));
+        }
+
+        .signature {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: rgba(255, 215, 0, 0.6);
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div class="clock-container">
+        <canvas id="clockCanvas" width="500" height="500"></canvas>
+        <div class="signature"></div>
+    </div>
+
+    <script>
+        (function() {
+            const canvas = document.getElementById('clockCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Параметры часов (как в оригинале, но адаптировано)
+            const centerX = 250;
+            const centerY = 250;
+            const radius = 210;
+            // Длины стрелок относительно радиуса (из кода: часовая 0.7, минутная 0.9, секундная 0.9)
+            const HOUR_LENGTH = 0.7;
+            const MINUTE_LENGTH = 0.9;
+            const SECOND_LENGTH = 0.9;
+            // Хвостики стрелок (противовес) — из кода crl/20, т.е. 0.05 от длины стрелки
+            const TAIL_FACTOR = 0.05;
+            // Ширина стрелок у основания (в радианах, как в оригинале, но здесь упростим до пикселей)
+            const HOUR_WIDTH = 14;
+            const MINUTE_WIDTH = 10;
+            const SECOND_WIDTH = 4;
+
+            // Для звука каждый час (минута=0, секунда=0)
+            let audioCtx = null;
+            let hourBeepPlayed = false;
+
+            function initAudio() {
+                if (!audioCtx) {
+                    audioCtx = new(window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            function playHourBeep() {
+                if (!audioCtx) return;
+                // Мелодичный сигнал: три коротких ноты
+                const now = audioCtx.currentTime;
+                [440, 554, 660].forEach((freq, i) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.15);
+                    gain.gain.setValueAtTime(0.3, now + i * 0.15);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.2);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(now + i * 0.15);
+                    osc.stop(now + i * 0.15 + 0.3);
+                });
+            }
+
+            // Преобразование угла в радианы (с учётом того, что 0 радиан = 3 часа, а в часах 0 = 12 часов)
+            function getAngle(radians) {
+                // В оригинале: sin(A) для X, -cos(A) для Y, где A отсчитывается от 12 часов по часовой стрелке
+                // В canvas угол от оси X по часовой, так что просто используем переданный радиан
+                return radians;
+            }
+
+            // Рисование стрелки — аналог процедуры arrow из Pascal
+            function drawArrow(angleRad, lengthFactor, baseHalfWidth, color, glowColor) {
+                const arrowLength = radius * lengthFactor;
+                const tailLength = arrowLength * TAIL_FACTOR;
+
+                // Основные направления
+                const sinA = Math.sin(angleRad);
+                const cosA = Math.cos(angleRad);
+
+                // Кончик стрелки
+                const tipX = centerX + sinA * arrowLength;
+                const tipY = centerY - cosA * arrowLength;
+
+                // Центр (ось)
+                const baseCenterX = centerX;
+                const baseCenterY = centerY;
+
+                // Левая и правая точки основания (перпендикулярно стрелке)
+                // В оригинале: угол ширины = pi * Width, где Width — малая доля.
+                // Используем простое смещение по перпендикуляру.
+                const perpX = cosA; // перпендикуляр по X
+                const perpY = sinA; // перпендикуляр по Y (с учётом знака)
+
+                const baseLeftX = baseCenterX - perpX * baseHalfWidth;
+                const baseLeftY = baseCenterY - perpY * baseHalfWidth;
+                const baseRightX = baseCenterX + perpX * baseHalfWidth;
+                const baseRightY = baseCenterY + perpY * baseHalfWidth;
+
+                // Хвост (противовес)
+                const tailX = centerX - sinA * tailLength;
+                const tailY = centerY + cosA * tailLength;
+
+                // Рисуем многоугольник стрелки
+                ctx.save();
+                ctx.shadowColor = glowColor;
+                ctx.shadowBlur = 12;
+                ctx.beginPath();
+                ctx.moveTo(baseLeftX, baseLeftY);
+                ctx.lineTo(tipX, tipY);
+                ctx.lineTo(baseRightX, baseRightY);
+                ctx.lineTo(tailX, tailY);
+                ctx.closePath();
+
+                // Градиент для красоты
+                const grad = ctx.createLinearGradient(
+                    centerX - sinA * tailLength,
+                    centerY + cosA * tailLength,
+                    tipX,
+                    tipY
+                );
+                grad.addColorStop(0, color);
+                grad.addColorStop(1, glowColor);
+                ctx.fillStyle = grad;
+                ctx.fill();
+
+                // Обводка для чёткости
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            function drawClockFace() {
+                // Внешний круг с градиентом
+                ctx.save();
+                ctx.shadowColor = 'rgba(255, 215, 0, 0.5)';
+                ctx.shadowBlur = 20;
+                const outerGrad = ctx.createRadialGradient(centerX - 30, centerY - 30, radius * 0.7, centerX, centerY,
+                    radius);
+                outerGrad.addColorStop(0, '#f5e6c8');
+                outerGrad.addColorStop(0.7, '#b8945a');
+                outerGrad.addColorStop(1, '#6b4c2b');
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+                ctx.strokeStyle = outerGrad;
+                ctx.lineWidth = 8;
+                ctx.stroke();
+
+                // Внутренний ободок
+                ctx.shadowBlur = 8;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, radius - 14, 0, Math.PI * 2);
+                ctx.strokeStyle = '#d4af37';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+
+                // Деления: 60 минутных, 12 часовых (как в оригинале)
+                for (let i = 0; i < 60; i++) {
+                    const angle = (Math.PI / 30) * i; // pi/30 * i
+                    const sinVal = Math.sin(angle);
+                    const cosVal = Math.cos(angle);
+                    const isHourMark = i % 5 === 0;
+
+                    const innerR = isHourMark ? radius - radius / 12 : radius - radius / 20;
+                    const outerR = radius - 4;
+
+                    const x1 = centerX + sinVal * innerR;
+                    const y1 = centerY - cosVal * innerR;
+                    const x2 = centerX + sinVal * outerR;
+                    const y2 = centerY - cosVal * outerR;
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1, y1);
+                    ctx.lineTo(x2, y2);
+                    ctx.strokeStyle = isHourMark ? '#ffd700' : '#b8945a';
+                    ctx.lineWidth = isHourMark ? 3 : 1.5;
+                    ctx.shadowColor = isHourMark ? 'rgba(255,215,0,0.8)' : 'rgba(0,0,0,0)';
+                    ctx.shadowBlur = isHourMark ? 6 : 0;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+
+                // Цифры 1-12
+                ctx.save();
+                ctx.font = 'bold 24px "Georgia", "Times New Roman", serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowColor = 'rgba(255, 215, 0, 0.8)';
+                ctx.shadowBlur = 6;
+                for (let i = 1; i <= 12; i++) {
+                    const angle = (Math.PI / 6) * i; // pi/6 * i
+                    const sinVal = Math.sin(angle);
+                    const cosVal = Math.cos(angle);
+                    // Позиция цифры (немного ближе к центру)
+                    const digitR = radius - radius / 6;
+                    const x = centerX + sinVal * digitR;
+                    const y = centerY - cosVal * digitR;
+
+                    ctx.fillStyle = '#f5e6c8';
+                    ctx.fillText(i.toString(), x, y);
+                }
+                ctx.restore();
+
+                // Центральная ось
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, 10, 0, Math.PI * 2);
+                const centerGrad = ctx.createRadialGradient(centerX - 2, centerY - 2, 2, centerX, centerY, 10);
+                centerGrad.addColorStop(0, '#fff8e7');
+                centerGrad.addColorStop(1, '#b8945a');
+                ctx.fillStyle = centerGrad;
+                ctx.shadowColor = 'rgba(255,215,0,0.9)';
+                ctx.shadowBlur = 14;
+                ctx.fill();
+                ctx.strokeStyle = '#6b4c2b';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            function draw() {
+                // Очистка
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Рисуем циферблат
+                drawClockFace();
+
+                // Получаем текущее время
+                const now = new Date();
+                const hours = now.getHours() % 12;
+                const minutes = now.getMinutes();
+                const seconds = now.getSeconds();
+                const milliseconds = now.getMilliseconds();
+
+                // Вычисляем углы (как в Pascal)
+                const sec100 = Math.floor(milliseconds / 10); // эмуляция sec100
+                const As = (Math.PI / 30) * seconds + (Math.PI / 3000) * sec100;
+                const Am = (Math.PI / 30) * minutes + As / 60;
+                const Ah = (Math.PI / 6) * hours + Am / 12;
+
+                // Рисуем стрелки (порядок: часовая, минутная, секундная)
+                // Часовая — тёмно-золотая
+                drawArrow(Ah, HOUR_LENGTH, HOUR_WIDTH / 2, '#b8945a', '#ffd700');
+                // Минутная — серебристая
+                drawArrow(Am, MINUTE_LENGTH, MINUTE_WIDTH / 2, '#c0c0c0', '#ffffff');
+                // Секундная — красная, тонкая
+                drawArrow(As, SECOND_LENGTH, SECOND_WIDTH / 2, '#e63946', '#ff6b6b');
+
+                // Проверка на начало часа для звука
+                if (minutes === 0 && seconds === 0 && !hourBeepPlayed) {
+                    initAudio();
+                    playHourBeep();
+                    hourBeepPlayed = true;
+                } else if (seconds !== 0 || minutes !== 0) {
+                    hourBeepPlayed = false;
+                }
+
+                requestAnimationFrame(draw);
+            }
+
+            // Запуск анимации
+            draw();
+
+            // Инициализация аудио по первому клику (разблокировка для браузеров)
+            document.addEventListener('click', function audioUnlock() {
+                initAudio();
+            }, { once: true });
+        })();
+    </script>
+</body>
+</html>
