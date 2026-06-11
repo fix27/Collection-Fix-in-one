@@ -503,3 +503,82 @@ claude.ai
     glVertex3f(x + 0.07, y + 0.07, z + 0.07);
     glVertex3f(x - 0.07, y - 0.07, z - 0.07);
  снижинками, этот слишком крупный
+
+positive:
+
+unit Unit1;
+
+interface
+
+uses
+  Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
+  Dialogs, ExtCtrls;
+
+type
+  TForm1 = class(TForm)
+    Timer1: TTimer;
+    procedure FormPaint(Sender: TObject);
+    procedure FormCreate(Sender: TObject);
+    procedure FormClick(Sender: TObject);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  Form1: TForm1;
+
+implementation
+
+uses Math;
+
+{$R *.dfm}
+
+procedure TForm1.FormPaint(Sender: TObject);
+var
+ i,j,k,tmp:integer;
+ x,y,z:extended;
+ gx: array [1..5] of Extended;
+ gy: array [1..5] of Extended;
+ gz: array [1..5] of Extended;
+ t:integer;
+begin
+ x:=0;
+ y:=0;
+ z:=0;
+ t:=round(4)+1;
+ for k:=1 to t do
+ begin
+  gx[k]:=random*random/15;
+  gy[k]:=random*random/15;
+  gz[k]:=random*random/15;
+ end;
+ for i:=0 to Form1.Width do
+  for j:=0 to Form1.Height do
+  begin
+   for k:=1 to t do
+   begin
+    x:=cos(gx[k]*(cos(i/50)+sin(j/50))*100+30*pi*gx[k]*sin(x));
+    y:=sin(gy[k]*(cos(j/50)+sin(i/50))*100+30*pi*gy[k]*cos(y));
+    z:=sin(gz[k]*(cos(i/50)+sin(j/50))*100+30*pi*gz[k]*cos(z));
+   end;
+   Form1.Canvas.Pixels[i,j]:=RGB(round(x*127)+127,round(y*127)+127,round(z*127)+127);
+  end;
+
+end;
+
+procedure TForm1.FormCreate(Sender: TObject);
+begin
+ randomize;
+end;
+
+procedure TForm1.FormClick(Sender: TObject);
+begin
+
+ paint;
+end;
+
+end.
+перепиши одним html файлом
+
