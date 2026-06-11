@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Positive — Delphi Port</title>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --surface: #16213e;
+            --accent: #e94560;
+            --text: #e0e0e0;
+            --muted: #a0a0b8;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: var(--bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', 'Inter', system-ui, -apple-system, sans-serif;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            max-width: 95vw;
+        }
+
+        .header {
+            text-align: center;
+            user-select: none;
+        }
+
+        .header h1 {
+            font-size: clamp(1.6rem, 4vw, 2.4rem);
+            font-weight: 300;
+            color: var(--text);
+            letter-spacing: 0.06em;
+            margin: 0;
+        }
+
+        .header .subtitle {
+            font-size: 0.85rem;
+            color: var(--muted);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-top: 4px;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow:
+                0 0 0 1px rgba(255, 255, 255, 0.06),
+                0 20px 60px rgba(0, 0, 0, 0.5),
+                0 0 80px rgba(233, 68, 96, 0.08);
+            transition: box-shadow 0.6s ease;
+            cursor: pointer;
+            line-height: 0;
+            background: #000;
+        }
+
+        .canvas-wrapper:hover {
+            box-shadow:
+                0 0 0 1px rgba(255, 255, 255, 0.12),
+                0 24px 72px rgba(0, 0, 0, 0.55),
+                0 0 120px rgba(233, 68, 96, 0.18);
+        }
+
+        .canvas-wrapper:active {
+            box-shadow:
+                0 0 0 1px rgba(255, 255, 255, 0.18),
+                0 8px 32px rgba(0, 0, 0, 0.6),
+                0 0 60px rgba(233, 68, 96, 0.25);
+            transform: scale(0.995);
+            transition: all 0.1s ease;
+        }
+
+        .canvas-wrapper.rendering {
+            cursor: wait;
+            box-shadow:
+                0 0 0 1px rgba(255, 255, 255, 0.04),
+                0 10px 40px rgba(0, 0, 0, 0.6),
+                0 0 40px rgba(233, 68, 96, 0.04);
+        }
+
+        canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            image-rendering: pixelated;
+        }
+
+        .info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--muted);
+            font-size: 0.8rem;
+            letter-spacing: 0.04em;
+            user-select: none;
+            text-align: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .info .dot {
+            display: inline-block;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent);
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%,
+            100% {
+                opacity: 0.4;
+                transform: scale(0.8);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.3);
+            }
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 0.7rem;
+            letter-spacing: 0.06em;
+            color: var(--muted);
+            transition: all 0.3s ease;
+        }
+
+        .badge:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            color: var(--text);
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                gap: 14px;
+            }
+            .canvas-wrapper {
+                border-radius: 10px;
+            }
+            .header h1 {
+                font-size: 1.3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Позитив</h1>
+            <p class="subtitle">Generative canvas &middot; Delphi tribute</p>
+        </div>
+
+        <div class="canvas-wrapper" id="canvasWrapper" title="Click to regenerate">
+            <canvas id="canvas" width="500" height="400"></canvas>
+        </div>
+
+        <div class="info">
+            <span class="dot"></span>
+            <span>Click the canvas to regenerate</span>
+            <span class="badge" id="pixelCount">500 × 400</span>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const wrapper = document.getElementById('canvasWrapper');
+            const pixelCountBadge = document.getElementById('pixelCount');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Update badge
+            pixelCountBadge.textContent = `${width} × ${height}`;
+
+            /**
+             * Precompute trigonometric lookup tables for performance.
+             * This mirrors cos(i/50), sin(i/50) etc. from the Delphi code.
+             */
+            function buildLookupTables(w, h) {
+                const cosI = new Float64Array(w);
+                const sinI = new Float64Array(w);
+                const cosJ = new Float64Array(h);
+                const sinJ = new Float64Array(h);
+
+                for (let i = 0; i < w; i++) {
+                    cosI[i] = Math.cos(i / 50);
+                    sinI[i] = Math.sin(i / 50);
+                }
+                for (let j = 0; j < h; j++) {
+                    cosJ[j] = Math.cos(j / 50);
+                    sinJ[j] = Math.sin(j / 50);
+                }
+
+                return { cosI, sinI, cosJ, sinJ };
+            }
+
+            /**
+             * Main paint function — ported from TForm1.FormPaint
+             *
+             * Key behavioral notes preserved from the original:
+             *  - x, y, z are initialized ONCE and carry over between pixels
+             *    (column-major order: outer loop = i/columns, inner = j/rows)
+             *  - gx/gy/gz arrays use random*random/15 distribution
+             *  - 5 iterations (k = 1..5) per pixel
+             *  - RGB channels derived from evolved x, y, z values
+             */
+            function paint() {
+                // --- Generate random parameters (mirrors Delphi's gx/gy/gz init) ---
+                const gx = new Float64Array(5);
+                const gy = new Float64Array(5);
+                const gz = new Float64Array(5);
+
+                for (let k = 0; k < 5; k++) {
+                    // random*random/15 — product of two uniforms, skewed toward 0
+                    gx[k] = Math.random() * Math.random() / 15;
+                    gy[k] = Math.random() * Math.random() / 15;
+                    gz[k] = Math.random() * Math.random() / 15;
+                }
+
+                // --- Precompute trig lookups ---
+                const { cosI, sinI, cosJ, sinJ } = buildLookupTables(width, height);
+
+                // --- State variables (carry over across pixels!) ---
+                let x = 0;
+                let y = 0;
+                let z = 0;
+
+                // --- Create ImageData for direct pixel manipulation ---
+                const imageData = ctx.createImageData(width, height);
+                const data = imageData.data;
+
+                const pi = Math.PI;
+
+                // --- Pixel loops: column-major order (i = x, j = y) ---
+                // This matches the Delphi: for i:=0 to Width do for j:=0 to Height do
+                for (let i = 0; i < width; i++) {
+                    const ci = cosI[i]; // cos(i/50)
+                    const si = sinI[i]; // sin(i/50)
+
+                    for (let j = 0; j < height; j++) {
+                        const cj = cosJ[j]; // cos(j/50)
+                        const sj = sinJ[j]; // sin(j/50)
+
+                        // Common subexpressions
+                        const termA = ci + sj; // cos(i/50) + sin(j/50)
+                        const termB = cj + si; // cos(j/50) + sin(i/50)
+
+                        // 5 iterations updating x, y, z with feedback
+                        for (let k = 0; k < 5; k++) {
+                            const gxk = gx[k];
+                            const gyk = gy[k];
+                            const gzk = gz[k];
+
+                            x = Math.cos(gxk * termA * 100 + 30 * pi * gxk * Math.sin(x));
+                            y = Math.sin(gyk * termB * 100 + 30 * pi * gyk * Math.cos(y));
+                            z = Math.sin(gzk * termA * 100 + 30 * pi * gzk * Math.cos(z));
+                        }
+
+                        // Map x, y, z from [-1, 1] range to [0, 254] and clamp
+                        const r = Math.max(0, Math.min(255, Math.round(x * 127) + 127));
+                        const g = Math.max(0, Math.min(255, Math.round(y * 127) + 127));
+                        const b = Math.max(0, Math.min(255, Math.round(z * 127) + 127));
+
+                        // ImageData is row-major: index = (j * width + i) * 4
+                        const idx = (j * width + i) * 4;
+                        data[idx] = r;
+                        data[idx + 1] = g;
+                        data[idx + 2] = b;
+                        data[idx + 3] = 255; // alpha
+                    }
+                }
+
+                // --- Flush to canvas ---
+                ctx.putImageData(imageData, 0, 0);
+            }
+
+            /**
+             * Schedule a paint with UI feedback.
+             * Uses double rAF so the browser renders the "wait" cursor
+             * before the synchronous computation blocks the main thread.
+             */
+            function regenerate() {
+                wrapper.classList.add('rendering');
+                canvas.style.cursor = 'wait';
+
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        const start = performance.now();
+                        paint();
+                        const elapsed = (performance.now() - start).toFixed(0);
+                        console.log(`Rendered ${width}×${height} in ${elapsed} ms`);
+
+                        wrapper.classList.remove('rendering');
+                        canvas.style.cursor = 'pointer';
+                    });
+                });
+            }
+
+            // --- Initial render on page load ---
+            // Small delay so the page layout is painted first
+            window.addEventListener('DOMContentLoaded', () => {
+                setTimeout(regenerate, 80);
+            });
+
+            // If DOM already loaded (script at end of body), render immediately
+            if (document.readyState === 'interactive' || document.readyState === 'complete') {
+                setTimeout(regenerate, 40);
+            }
+
+            // --- Click handler ---
+            canvas.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (!wrapper.classList.contains('rendering')) {
+                    regenerate();
+                }
+            });
+
+            // Also allow clicking the wrapper area
+            wrapper.addEventListener('click', (e) => {
+                if (e.target === wrapper && !wrapper.classList.contains('rendering')) {
+                    regenerate();
+                }
+            });
+
+            // --- Keyboard shortcut: press Space to regenerate ---
+            document.addEventListener('keydown', (e) => {
+                if (e.code === 'Space' && !wrapper.classList.contains('rendering') &&
+                    document.activeElement === document.body) {
+                    e.preventDefault();
+                    regenerate();
+                }
+            });
+
+            console.log('Procedural Art ready — click the canvas or press Space to regenerate.');
+            console.log('Original Delphi algorithm ported to JavaScript + Canvas.');
+        })();
+    </script>
+</body>
+</html>
