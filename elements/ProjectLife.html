@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game of Life (центр 0,0 + график)</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+        }
+        canvas#mainCanvas {
+            display: block;
+            cursor: grab;
+        }
+        canvas#mainCanvas:active {
+            cursor: grabbing;
+        }
+        .controls {
+            position: fixed;
+            bottom: 140px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px 20px;
+            border-radius: 30px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            z-index: 20;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .controls button {
+            background: #444;
+            color: white;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+            white-space: nowrap;
+        }
+        .controls button:hover { background: #666; }
+        .controls button.active { background: #0a84ff; }
+        .controls label {
+            color: #ccc;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            white-space: nowrap;
+        }
+        .controls input[type="range"] {
+            width: 80px;
+            cursor: pointer;
+        }
+        .stats {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.6);
+            color: #aaa;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 13px;
+            backdrop-filter: blur(6px);
+            z-index: 20;
+        }
+        /* Контейнер графика снизу */
+        #chartContainer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 120px;
+            background: rgba(20, 20, 20, 0.8);
+            backdrop-filter: blur(4px);
+            z-index: 10;
+            pointer-events: none; /* клики проходят сквозь график */
+            border-top: 1px solid #333;
+        }
+        #chartCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="mainCanvas"></canvas>
+    <div class="stats" id="stats">Поколение: 0 | Живых: 0</div>
+    <div id="chartContainer">
+        <canvas id="chartCanvas"></canvas>
+    </div>
+    <div class="controls">
+        <button id="playBtn" class="active">▶ Пауза</button>
+        <button id="stepBtn">⏭ Шаг</button>
+        <button id="randomBtn">🎲 Случайно</button>
+        <button id="clearBtn">🗑 Очистить</button>
+        <label>Скорость: <input type="range" id="speedSlider" min="1" max="30" value="10"></label>
+        <label>Зум: <span id="zoomLabel">1.0x</span></label>
+    </div>
+
+    <script>
+        (function() {
+            // ---------- Основной canvas ----------
+            const canvas = document.getElementById('mainCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // ---------- График ----------
+            const chartCanvas = document.getElementById('chartCanvas');
+            const chartCtx = chartCanvas.getContext('2d');
+            const maxHistoryLength = 200; // количество хранимых точек
+            let history = [];
+
+            // ---------- Параметры поля ----------
+            const MaxLifeWidth = 1000;
+            const MaxLifeHeight = 1000;
+            const FieldWidth = 2 * MaxLifeWidth + 1;   // 801
+            const FieldHeight = 2 * MaxLifeHeight + 1; // 801
+
+            // ---------- Состояния ----------
+            let lifeWidth = 0;
+            let lifeHeight = 0;
+            let oldLife = new Uint8Array(FieldWidth * FieldHeight);
+            let newLife = new Uint8Array(FieldWidth * FieldHeight);
+            let generation = 0;
+            let liveCount = 0;
+
+            // ---------- Анимация ----------
+            let running = true;
+            let speed = 10;
+            let lastTime = 0;
+            let animationId = null;
+
+            // ---------- Камера ----------
+            let zoom = 1.0;
+            let offsetX = 0;
+            let offsetY = 0;
+            let dragging = false;
+            let dragStartX = 0, dragStartY = 0;
+            let dragOffsetStartX = 0, dragOffsetStartY = 0;
+
+            // ---------- UI элементы ----------
+            const playBtn = document.getElementById('playBtn');
+            const stepBtn = document.getElementById('stepBtn');
+            const randomBtn = document.getElementById('randomBtn');
+            const clearBtn = document.getElementById('clearBtn');
+            const speedSlider = document.getElementById('speedSlider');
+            const zoomLabel = document.getElementById('zoomLabel');
+            const statsDiv = document.getElementById('stats');
+
+            // ---------- Индексация ----------
+            function idx(y, x) {
+                return (x + MaxLifeWidth) + (y + MaxLifeHeight) * FieldWidth;
+            }
+            function wrapX(x) {
+                return ((x + MaxLifeWidth) % FieldWidth + FieldWidth) % FieldWidth - MaxLifeWidth;
+            }
+            function wrapY(y) {
+                return ((y + MaxLifeHeight) % FieldHeight + FieldHeight) % FieldHeight - MaxLifeHeight;
+            }
+
+            // ---------- Очистка поля ----------
+            function clearField(arr) {
+                arr.fill(0);
+            }
+
+            // ---------- Случайное заполнение ----------
+            function randomize(prob = 0.15) {
+                clearField(oldLife);
+                const range = 160;
+                for (let y = -range; y <= range; y++) {
+                    for (let x = -range; x <= range; x++) {
+                        if (Math.random() < prob) {
+                            const i = idx(x, y);
+                            oldLife[i] = 17;
+                        }
+                    }
+                }
+                lifeWidth = range;
+                lifeHeight = range;
+                generation = 0;
+                history = []; // сброс истории при новой случайной генерации
+                updateStats();
+                if (liveCount > 0) history.push(liveCount);
+                draw();
+            }
+
+            // ---------- Шаг симуляции ----------
+            function step() {
+                const imin = Math.max(-lifeWidth - 1, -MaxLifeWidth);
+                const imax = Math.min(MaxLifeWidth, lifeWidth + 1);
+                const jzone = Math.min(MaxLifeHeight, lifeHeight + 2);
+                let newLifeWidth = lifeWidth;
+                let newLifeHeight = lifeHeight;
+
+                for (let i = imin; i <= imax; i++) {
+                    for (let j = -jzone; j <= jzone; j++) {
+                        newLife[idx(i, j)] = 0;
+                    }
+                }
+
+                for (let i = imin; i <= imax; i++) {
+                    const i01 = wrapX(i + 1);
+                    const i11 = wrapX(i - 1);
+                    for (let j = -jzone; j <= jzone; j++) {
+                        const cellIdx = idx(i, j);
+                        if ((oldLife[cellIdx] & 16) === 0) continue;
+
+                        const cur = oldLife[cellIdx] & 1;
+                        const j01 = wrapY(j + 1);
+                        const j11 = wrapY(j - 1);
+                        const j02 = wrapY(j + 2);
+                        const j12 = wrapY(j - 2);
+
+                        const o = (oldLife[idx(i, j02)] & 1) +
+                                  (oldLife[idx(i, j12)] & 1) +
+                                  (oldLife[idx(i, j01)] & 1) +
+                                  (oldLife[idx(i, j11)] & 1) +
+                                  (oldLife[idx(i11, j)] & 1) +
+                                  (oldLife[idx(i01, j)] & 1) +
+                                  (oldLife[idx(i01, j01)] & 1) +
+                                  (oldLife[idx(i01, j11)] & 1) +
+                                  (oldLife[idx(i11, j01)] & 1) +
+                                  (oldLife[idx(i11, j11)] & 1);
+
+                        const survives = (cur === 1 && o === 2);
+                        const born = (cur === 0 && (o === 3 || o === 5 || o === 6));
+                        if (!survives && !born) continue;
+
+                        newLife[cellIdx] |= 17;
+                        newLife[idx(i, j01)] |= 16;
+                        newLife[idx(i, j11)] |= 16;
+                        newLife[idx(i11, j)] |= 16;
+                        newLife[idx(i01, j)] |= 16;
+                        newLife[idx(i01, j01)] |= 16;
+                        newLife[idx(i01, j11)] |= 16;
+                        newLife[idx(i11, j01)] |= 16;
+                        newLife[idx(i11, j11)] |= 16;
+
+                        if (Math.abs(i) > newLifeWidth) newLifeWidth = Math.abs(i);
+                        if (Math.abs(j) > newLifeHeight) newLifeHeight = Math.abs(j);
+                    }
+                }
+
+                if (lifeWidth < newLifeWidth) lifeWidth = Math.min(MaxLifeWidth, newLifeWidth);
+                if (lifeHeight < newLifeHeight) lifeHeight = Math.min(MaxLifeHeight, newLifeHeight);
+
+                [oldLife, newLife] = [newLife, oldLife];
+                generation++;
+                updateStats();
+                // Добавляем точку в историю
+                history.push(liveCount);
+                if (history.length > maxHistoryLength) history.shift();
+            }
+
+            function updateStats() {
+                let count = 0;
+                const yMin = -lifeHeight, yMax = lifeHeight;
+                const xMin = -lifeWidth, xMax = lifeWidth;
+                for (let y = yMin; y <= yMax; y++) {
+                    const rowBase = (y + MaxLifeHeight) * FieldWidth;
+                    for (let x = xMin; x <= xMax; x++) {
+                        if (oldLife[rowBase + (x + MaxLifeWidth)] & 1) count++;
+                    }
+                }
+                liveCount = count;
+                statsDiv.textContent = `Поколение: ${generation} | Живых: ${liveCount}`;
+            }
+
+            // ---------- Отрисовка основного поля ----------
+            function draw() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                const cellSize = zoom;
+                if (cellSize < 0.5) return;
+
+                const viewLeft = -offsetX / cellSize;
+                const viewTop = -offsetY / cellSize;
+                const viewRight = (canvas.width - offsetX) / cellSize;
+                const viewBottom = (canvas.height - offsetY) / cellSize;
+
+                const startX = Math.max(-lifeWidth, Math.floor(viewLeft) - 1);
+                const endX = Math.min(lifeWidth, Math.ceil(viewRight) + 1);
+                const startY = Math.max(-lifeHeight, Math.floor(viewTop) - 1);
+                const endY = Math.min(lifeHeight, Math.ceil(viewBottom) + 1);
+
+                ctx.fillStyle = '#4caf50';
+                for (let y = startY; y <= endY; y++) {
+                    const rowBase = (y + MaxLifeHeight) * FieldWidth;
+                    const screenY = y * cellSize + offsetY;
+                    for (let x = startX; x <= endX; x++) {
+                        if (oldLife[rowBase + (x + MaxLifeWidth)] & 1) {
+                            const screenX = x * cellSize + offsetX;
+                            ctx.fillRect(screenX, screenY, cellSize, cellSize);
+                        }
+                    }
+                }
+
+                if (cellSize > 5) {
+                    ctx.strokeStyle = '#222';
+                    ctx.lineWidth = 0.3;
+                    const gridStartX = Math.ceil(startX);
+                    const gridEndX = Math.floor(endX);
+                    const gridStartY = Math.ceil(startY);
+                    const gridEndY = Math.floor(endY);
+                    for (let y = gridStartY; y <= gridEndY; y++) {
+                        const sy = y * cellSize + offsetY;
+                        ctx.beginPath();
+                        ctx.moveTo(startX * cellSize + offsetX, sy);
+                        ctx.lineTo(endX * cellSize + offsetX, sy);
+                        ctx.stroke();
+                    }
+                    for (let x = gridStartX; x <= gridEndX; x++) {
+                        const sx = x * cellSize + offsetX;
+                        ctx.beginPath();
+                        ctx.moveTo(sx, startY * cellSize + offsetY);
+                        ctx.lineTo(sx, endY * cellSize + offsetY);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // ---------- Отрисовка графика ----------
+            function drawChart() {
+                const container = document.getElementById('chartContainer');
+                const w = container.clientWidth;
+                const h = container.clientHeight;
+                chartCanvas.width = w;
+                chartCanvas.height = h;
+
+                chartCtx.clearRect(0, 0, w, h);
+
+                if (history.length < 2) {
+                    chartCtx.fillStyle = '#888';
+                    chartCtx.font = '12px Arial';
+                    chartCtx.textAlign = 'center';
+                    chartCtx.fillText('Недостаточно данных для графика', w/2, h/2);
+                    return;
+                }
+
+                // Определим максимум для масштабирования
+                let maxVal = Math.max(...history, 1);
+                // Немного увеличим верхнюю границу для эстетики
+                maxVal = Math.ceil(maxVal * 1.1);
+
+                const padding = { top: 10, right: 15, bottom: 20, left: 45 };
+                const graphWidth = w - padding.left - padding.right;
+                const graphHeight = h - padding.top - padding.bottom;
+
+                // Сетка и подписи
+                chartCtx.strokeStyle = '#444';
+                chartCtx.lineWidth = 0.5;
+                chartCtx.fillStyle = '#aaa';
+                chartCtx.font = '10px Arial';
+                chartCtx.textAlign = 'right';
+                const stepsY = 4;
+                for (let i = 0; i <= stepsY; i++) {
+                    const y = padding.top + (graphHeight / stepsY) * i;
+                    const val = maxVal - (maxVal / stepsY) * i;
+                    chartCtx.beginPath();
+                    chartCtx.moveTo(padding.left, y);
+                    chartCtx.lineTo(w - padding.right, y);
+                    chartCtx.stroke();
+                    chartCtx.fillText(Math.round(val), padding.left - 5, y + 3);
+                }
+
+                // Ось X (поколения)
+                const stepX = Math.max(1, Math.floor(history.length / 6));
+                chartCtx.textAlign = 'center';
+                for (let i = 0; i < history.length; i += stepX) {
+                    const x = padding.left + (i / (history.length - 1)) * graphWidth;
+                    chartCtx.fillText(i, x, h - padding.bottom + 12);
+                }
+
+                // Линия графика
+                chartCtx.strokeStyle = '#0a84ff';
+                chartCtx.lineWidth = 2;
+                chartCtx.beginPath();
+                for (let i = 0; i < history.length; i++) {
+                    const x = padding.left + (i / (history.length - 1)) * graphWidth;
+                    const y = padding.top + graphHeight - (history[i] / maxVal) * graphHeight;
+                    if (i === 0) chartCtx.moveTo(x, y);
+                    else chartCtx.lineTo(x, y);
+                }
+                chartCtx.stroke();
+
+                // Точка последнего значения
+                if (history.length > 0) {
+                    const lastX = padding.left + graphWidth;
+                    const lastY = padding.top + graphHeight - (history[history.length-1] / maxVal) * graphHeight;
+                    chartCtx.fillStyle = '#ff4444';
+                    chartCtx.beginPath();
+                    chartCtx.arc(lastX, lastY, 3, 0, Math.PI*2);
+                    chartCtx.fill();
+                }
+            }
+
+            // ---------- Центрирование на (0,0) ----------
+            function centerView() {
+                offsetX = window.innerWidth / 2;
+                offsetY = window.innerHeight / 2;
+            }
+
+            // ---------- Анимационный цикл ----------
+            function tick(timestamp) {
+                if (running) {
+                    if (!lastTime) lastTime = timestamp;
+                    const elapsed = timestamp - lastTime;
+                    const interval = 1000 / speed;
+                    if (elapsed >= interval) {
+                        const steps = Math.floor(elapsed / interval);
+                        for (let s = 0; s < steps; s++) {
+                            step();
+                        }
+                        lastTime = timestamp - (elapsed % interval);
+                        draw();
+                        drawChart();
+                    }
+                }
+                animationId = requestAnimationFrame(tick);
+            }
+
+            // ---------- Управление ----------
+            function toggleRun() {
+                running = !running;
+                if (running) {
+                    playBtn.textContent = '▶ Пауза';
+                    playBtn.classList.add('active');
+                    lastTime = 0;
+                } else {
+                    playBtn.textContent = '▶ Старт';
+                    playBtn.classList.remove('active');
+                }
+            }
+
+            function singleStep() {
+                if (running) {
+                    running = false;
+                    playBtn.textContent = '▶ Старт';
+                    playBtn.classList.remove('active');
+                }
+                step();
+                draw();
+                drawChart();
+            }
+
+            playBtn.addEventListener('click', toggleRun);
+            stepBtn.addEventListener('click', singleStep);
+            randomBtn.addEventListener('click', () => {
+                randomize(0.18);
+                centerView(); // при randomize сброс в центр
+                draw();
+                drawChart();
+            });
+            clearBtn.addEventListener('click', () => {
+                clearField(oldLife);
+                clearField(newLife);
+                lifeWidth = 0;
+                lifeHeight = 0;
+                generation = 0;
+                history = [];
+                updateStats();
+                draw();
+                drawChart();
+            });
+
+            speedSlider.addEventListener('input', (e) => {
+                speed = parseInt(e.target.value, 10);
+                lastTime = 0;
+            });
+
+            // ---------- Зум и панорамирование ----------
+            canvas.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const zoomFactor = 1.1;
+                const oldZoom = zoom;
+                if (e.deltaY < 0) zoom *= zoomFactor;
+                else zoom /= zoomFactor;
+                zoom = Math.max(0.2, Math.min(20, zoom));
+
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                offsetX = mouseX - (mouseX - offsetX) * (zoom / oldZoom);
+                offsetY = mouseY - (mouseY - offsetY) * (zoom / oldZoom);
+                zoomLabel.textContent = zoom.toFixed(1) + 'x';
+                draw();
+            });
+
+            canvas.addEventListener('mousedown', (e) => {
+                if (e.button === 0) {
+                    dragging = true;
+                    dragStartX = e.clientX;
+                    dragStartY = e.clientY;
+                    dragOffsetStartX = offsetX;
+                    dragOffsetStartY = offsetY;
+                }
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!dragging) return;
+                offsetX = dragOffsetStartX + (e.clientX - dragStartX);
+                offsetY = dragOffsetStartY + (e.clientY - dragStartY);
+                draw();
+            });
+
+            window.addEventListener('mouseup', () => {
+                dragging = false;
+            });
+
+            canvas.addEventListener('click', (e) => {
+                if (dragging) return;
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                const cellX = Math.floor((mouseX - offsetX) / zoom);
+                const cellY = Math.floor((mouseY - offsetY) / zoom);
+                if (cellX < -MaxLifeWidth || cellX > MaxLifeWidth ||
+                    cellY < -MaxLifeHeight || cellY > MaxLifeHeight) return;
+                const i = idx(cellX, cellY);
+                if (oldLife[i] & 1) {
+                    oldLife[i] &= ~17;
+                } else {
+                    oldLife[i] = 17;
+                    if (Math.abs(cellX) > lifeWidth) lifeWidth = Math.min(MaxLifeWidth, Math.abs(cellX));
+                    if (Math.abs(cellY) > lifeHeight) lifeHeight = Math.min(MaxLifeHeight, Math.abs(cellY));
+                }
+                updateStats();
+                draw();
+            });
+
+            // ---------- Ресайз ----------
+            window.addEventListener('resize', () => {
+                // Сохраняем центр при изменении размера окна
+                const oldWidth = canvas.width;
+                const oldHeight = canvas.height;
+                // Пересчитываем offset, чтобы та же точка поля осталась в центре
+                offsetX += (window.innerWidth - oldWidth) / 2;
+                offsetY += (window.innerHeight - oldHeight) / 2;
+                draw();
+                drawChart();
+            });
+
+            // ---------- Старт ----------
+            randomize(0.12);
+            centerView(); // изначально 0,0 в центре экрана
+            draw();
+            drawChart();
+            animationId = requestAnimationFrame(tick);
+        })();
+    </script>
+</body>
+</html>
