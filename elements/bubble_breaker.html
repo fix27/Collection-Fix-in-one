@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bubble Breaker · Большое поле 7×7</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1e2b 0%, #2a3140 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            padding: 20px;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            border-radius: 28px;
+            padding: 30px 35px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5),
+                        0 0 0 1px rgba(255, 255, 255, 0.08);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+        }
+
+        canvas {
+            display: block;
+            border-radius: 20px;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4),
+                        inset 0 2px 4px rgba(255, 255, 255, 0.1);
+            background: #0f1219;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        canvas:active {
+            transform: scale(0.98);
+        }
+
+        .panel {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .score-box {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 16px;
+            padding: 14px 22px;
+            color: #e8edf5;
+            font-size: 15px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 130px;
+            justify-content: center;
+        }
+        .score-box span {
+            font-weight: 700;
+            font-size: 24px;
+            color: #ffd166;
+            letter-spacing: 0.5px;
+        }
+        .score-best {
+            color: #9aa4b8;
+            font-size: 13px;
+        }
+        .score-best span {
+            font-size: 16px;
+            color: #94d3a2;
+            font-weight: 600;
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #e0e6f0;
+            font-weight: 600;
+            font-size: 14px;
+            padding: 12px 22px;
+            border-radius: 14px;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+            transition: all 0.25s;
+            letter-spacing: 0.3px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        button:hover {
+            background: rgba(255, 255, 255, 0.16);
+            border-color: rgba(255, 255, 255, 0.35);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -8px rgba(0,0,0,0.4);
+        }
+        button:active {
+            transform: translateY(0);
+            background: rgba(255,255,255,0.2);
+        }
+        button.primary {
+            background: #ffb347;
+            border-color: #ffb347;
+            color: #1e1e1e;
+            font-weight: 700;
+        }
+        button.primary:hover {
+            background: #ffa01c;
+            border-color: #ffa01c;
+            box-shadow: 0 10px 22px -6px #ffb34780;
+        }
+        button:disabled {
+            opacity: 0.45;
+            pointer-events: none;
+            filter: grayscale(0.4);
+        }
+
+        .status {
+            color: #cdd6e4;
+            font-size: 14px;
+            min-height: 22px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status .pulse {
+            width: 8px;
+            height: 8px;
+            background: #4ade80;
+            border-radius: 50%;
+            animation: pulse 0.9s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(1.6); }
+        }
+        .game-over-msg {
+            color: #f87171;
+            font-weight: 600;
+            animation: fadeIn 0.3s;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .legend {
+            color: #6f7a91;
+            font-size: 12px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="350" height="350"></canvas>
+        
+        <div class="panel">
+            <div class="score-box">
+                🎯 Счёт <span id="scoreDisplay">0</span>
+            </div>
+            <div class="score-box score-best">
+                🧠 Макс. <span id="bestPossibleDisplay">—</span>
+            </div>
+        </div>
+
+        <div class="panel">
+            <button id="newGameBtn">🔄 Новая игра</button>
+            <button id="hintBtn" class="primary">💡 AI подсказка</button>
+        </div>
+
+        <div class="status" id="statusMessage">
+            <span id="statusText">Кликните на группу из 2+ шаров</span>
+        </div>
+        <div class="legend">
+            AI выполняет полный рекурсивный перебор всех ходов с кэшированием (мемоизацией) состояний
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            // ----- УВЕЛИЧЕННОЕ ПОЛЕ 7x7 -----
+            const ROWS = 7;
+            const COLS = 7;
+            const COLORS = 4;          // 4 цвета
+            const CELL_SIZE = 50;      // px (под размер холста 350x350)
+            const COLORS_PALETTE = [
+                '#ef4444', // красный
+                '#3b82f6', // синий
+                '#10b981', // зелёный
+                '#f59e0b', // жёлтый/оранжевый
+            ];
+
+            // ----- DOM элементы -----
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const scoreDisplay = document.getElementById('scoreDisplay');
+            const bestPossibleDisplay = document.getElementById('bestPossibleDisplay');
+            const statusText = document.getElementById('statusText');
+            const newGameBtn = document.getElementById('newGameBtn');
+            const hintBtn = document.getElementById('hintBtn');
+
+            // ----- СОСТОЯНИЕ ИГРЫ -----
+            let gameBoard = [];          // 2D массив: 0 = пусто, 1..COLORS = цвет
+            let currentScore = 0;
+            let gameOver = false;
+            let hintCluster = null;      // подсвеченная группа (AI подсказка)
+            let isAIThinking = false;
+
+            // ----- КЭШ ДЛЯ AI (мемоизация) -----
+            const aiCache = new Map();
+
+            // ========== УТИЛИТЫ ДОСКИ ==========
+            function cloneBoard(board) {
+                return board.map(row => [...row]);
+            }
+
+            function serializeBoard(board) {
+                return board.map(row => row.join(',')).join(';');
+            }
+
+            function applyGravity(board) {
+                for (let c = 0; c < COLS; c++) {
+                    const col = [];
+                    for (let r = 0; r < ROWS; r++) {
+                        if (board[r][c] !== 0) col.push(board[r][c]);
+                    }
+                    while (col.length < ROWS) col.unshift(0);
+                    for (let r = 0; r < ROWS; r++) {
+                        board[r][c] = col[r];
+                    }
+                }
+            }
+
+            function getCluster(board, startR, startC) {
+                if (board[startR][startC] === 0) return [];
+                const color = board[startR][startC];
+                const visited = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+                const cluster = [];
+                const queue = [[startR, startC]];
+                visited[startR][startC] = true;
+
+                while (queue.length) {
+                    const [r, c] = queue.shift();
+                    cluster.push([r, c]);
+                    for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+                        const nr = r + dr;
+                        const nc = c + dc;
+                        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS &&
+                            !visited[nr][nc] && board[nr][nc] === color) {
+                            visited[nr][nc] = true;
+                            queue.push([nr, nc]);
+                        }
+                    }
+                }
+                return cluster;
+            }
+
+            function findAllMoves(board) {
+                const visited = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+                const moves = [];
+                for (let r = 0; r < ROWS; r++) {
+                    for (let c = 0; c < COLS; c++) {
+                        if (board[r][c] === 0 || visited[r][c]) continue;
+                        const color = board[r][c];
+                        const cluster = [];
+                        const queue = [[r, c]];
+                        visited[r][c] = true;
+                        while (queue.length) {
+                            const [cr, cc] = queue.shift();
+                            cluster.push([cr, cc]);
+                            for (const [dr, dc] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+                                const nr = cr + dr;
+                                const nc = cc + dc;
+                                if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS &&
+                                    !visited[nr][nc] && board[nr][nc] === color) {
+                                    visited[nr][nc] = true;
+                                    queue.push([nr, nc]);
+                                }
+                            }
+                        }
+                        if (cluster.length >= 2) {
+                            moves.push(cluster);
+                        }
+                    }
+                }
+                return moves;
+            }
+
+            function calculatePoints(size) {
+                return Math.pow(size - 2, 2);
+            }
+
+            function hasAnyMove(board) {
+                return findAllMoves(board).length > 0;
+            }
+
+            // ========== ИГРОВЫЕ ДЕЙСТВИЯ ==========
+            function generateRandomBoard() {
+                const board = [];
+                for (let r = 0; r < ROWS; r++) {
+                    const row = [];
+                    for (let c = 0; c < COLS; c++) {
+                        row.push(Math.floor(Math.random() * COLORS) + 1);
+                    }
+                    board.push(row);
+                }
+                if (!hasAnyMove(board)) {
+                    return generateRandomBoard();
+                }
+                return board;
+            }
+
+            function resetGame() {
+                gameBoard = generateRandomBoard();
+                currentScore = 0;
+                gameOver = false;
+                hintCluster = null;
+                aiCache.clear();
+                updateUI();
+                drawBoard();
+                statusText.textContent = 'Кликните на группу из 2+ шаров';
+                statusText.className = '';
+                bestPossibleDisplay.textContent = '—';
+            }
+
+            function removeCluster(board, cluster) {
+                for (const [r, c] of cluster) {
+                    board[r][c] = 0;
+                }
+                applyGravity(board);
+                return calculatePoints(cluster.length);
+            }
+
+            function performMove(clusterCoords) {
+                if (gameOver || isAIThinking) return false;
+                if (clusterCoords.length < 2) return false;
+
+                const points = removeCluster(gameBoard, clusterCoords);
+                currentScore += points;
+                hintCluster = null;
+
+                if (!hasAnyMove(gameBoard)) {
+                    gameOver = true;
+                    statusText.textContent = '🎉 Игра окончена! Нет доступных ходов.';
+                    statusText.className = 'game-over-msg';
+                } else {
+                    statusText.textContent = 'Ход выполнен. Ваш счёт обновлён.';
+                    statusText.className = '';
+                }
+
+                updateUI();
+                drawBoard();
+                return true;
+            }
+
+            function updateUI() {
+                scoreDisplay.textContent = currentScore;
+                if (gameOver) {
+                    hintBtn.disabled = true;
+                } else {
+                    hintBtn.disabled = isAIThinking;
+                }
+                newGameBtn.disabled = isAIThinking;
+            }
+
+            // ========== ОТРИСОВКА ==========
+            function drawBoard() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                for (let r = 0; r < ROWS; r++) {
+                    for (let c = 0; c < COLS; c++) {
+                        const x = c * CELL_SIZE;
+                        const y = r * CELL_SIZE;
+                        
+                        ctx.fillStyle = '#1a1f2b';
+                        ctx.fillRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+                        
+                        if (gameBoard[r][c] !== 0) {
+                            const colorIndex = gameBoard[r][c] - 1;
+                            const baseColor = COLORS_PALETTE[colorIndex];
+                            
+                            const cx = x + CELL_SIZE / 2;
+                            const cy = y + CELL_SIZE / 2;
+                            const radius = CELL_SIZE * 0.38; // ~19px при CELL_SIZE=50
+                            
+                            // Тень
+                            ctx.fillStyle = 'rgba(0,0,0,0.35)';
+                            ctx.beginPath();
+                            ctx.arc(cx + 2, cy + 2, radius, 0, Math.PI * 2);
+                            ctx.fill();
+                            
+                            // Основной шар
+                            const gradient = ctx.createRadialGradient(cx - 2, cy - 3, radius * 0.1, cx, cy, radius);
+                            gradient.addColorStop(0, '#ffffff');
+                            gradient.addColorStop(0.25, baseColor);
+                            gradient.addColorStop(0.7, baseColor);
+                            gradient.addColorStop(1, '#000000');
+                            ctx.fillStyle = gradient;
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                            ctx.fill();
+                            
+                            // Блик
+                            ctx.fillStyle = 'rgba(255,255,255,0.35)';
+                            ctx.beginPath();
+                            ctx.arc(cx - radius*0.25, cy - radius*0.3, radius*0.28, 0, Math.PI*2);
+                            ctx.fill();
+                        }
+                    }
+                }
+
+                // Сетка
+                ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+                ctx.lineWidth = 1;
+                for (let i = 0; i <= COLS; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(i * CELL_SIZE, 0);
+                    ctx.lineTo(i * CELL_SIZE, canvas.height);
+                    ctx.stroke();
+                }
+                for (let i = 0; i <= ROWS; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, i * CELL_SIZE);
+                    ctx.lineTo(canvas.width, i * CELL_SIZE);
+                    ctx.stroke();
+                }
+
+                // Подсветка AI-подсказки
+                if (hintCluster && !gameOver) {
+                    ctx.save();
+                    ctx.strokeStyle = '#fbbf24';
+                    ctx.lineWidth = 3.5;
+                    ctx.shadowColor = '#fbbf24';
+                    ctx.shadowBlur = 12;
+                    ctx.setLineDash([6, 4]);
+                    for (const [r, c] of hintCluster) {
+                        const cx = c * CELL_SIZE + CELL_SIZE / 2;
+                        const cy = r * CELL_SIZE + CELL_SIZE / 2;
+                        const radius = CELL_SIZE * 0.42;
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+                    ctx.setLineDash([]);
+                    ctx.restore();
+                }
+            }
+
+            // ========== AI: ПОЛНЫЙ РЕКУРСИВНЫЙ ПЕРЕБОР С КЭШЕМ ==========
+            function solveState(board) {
+                const key = serializeBoard(board);
+                if (aiCache.has(key)) {
+                    return aiCache.get(key);
+                }
+
+                const moves = findAllMoves(board);
+                if (moves.length === 0) {
+                    const result = { score: 0, move: null };
+                    aiCache.set(key, result);
+                    return result;
+                }
+
+                let bestTotalScore = -1;
+                let bestMove = null;
+
+                for (const move of moves) {
+                    const newBoard = cloneBoard(board);
+                    const pointsGained = removeCluster(newBoard, move);
+                    const subResult = solveState(newBoard);
+                    const totalScore = pointsGained + subResult.score;
+                    
+                    if (totalScore > bestTotalScore) {
+                        bestTotalScore = totalScore;
+                        bestMove = move;
+                    }
+                }
+
+                const result = { score: bestTotalScore, move: bestMove };
+                aiCache.set(key, result);
+                return result;
+            }
+
+            async function computeHint() {
+                if (gameOver || isAIThinking) return;
+                
+                isAIThinking = true;
+                updateUI();
+                statusText.innerHTML = '<span class="pulse"></span> AI анализирует все варианты (7×7)...';
+                bestPossibleDisplay.textContent = '...';
+                hintBtn.disabled = true;
+                newGameBtn.disabled = true;
+
+                return new Promise((resolve) => {
+                    setTimeout(() => {
+                        try {
+                            aiCache.clear();
+                            const startTime = performance.now();
+                            const result = solveState(gameBoard);
+                            const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
+                            
+                            if (result.move) {
+                                hintCluster = result.move;
+                                bestPossibleDisplay.textContent = result.score + currentScore;
+                                statusText.textContent = `✅ Лучший ход (ещё +${result.score} очков). Перебор за ${elapsed}с.`;
+                                statusText.className = '';
+                            } else {
+                                hintCluster = null;
+                                bestPossibleDisplay.textContent = currentScore;
+                                statusText.textContent = '⚠️ Нет доступных ходов.';
+                                statusText.className = 'game-over-msg';
+                            }
+                        } catch (e) {
+                            console.error('AI error:', e);
+                            statusText.textContent = '❌ Ошибка в вычислениях AI.';
+                            hintCluster = null;
+                        } finally {
+                            isAIThinking = false;
+                            updateUI();
+                            drawBoard();
+                            resolve();
+                        }
+                    }, 30);
+                });
+            }
+
+            // ========== ОБРАБОТЧИКИ ==========
+            canvas.addEventListener('click', (e) => {
+                if (gameOver || isAIThinking) return;
+                
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                
+                const mouseX = (e.clientX - rect.left) * scaleX;
+                const mouseY = (e.clientY - rect.top) * scaleY;
+                
+                const col = Math.floor(mouseX / CELL_SIZE);
+                const row = Math.floor(mouseY / CELL_SIZE);
+                
+                if (row < 0 || row >= ROWS || col < 0 || col >= COLS) return;
+                if (gameBoard[row][col] === 0) return;
+                
+                const cluster = getCluster(gameBoard, row, col);
+                if (cluster.length < 2) {
+                    statusText.textContent = 'Эта группа меньше 2 шаров — нельзя удалить.';
+                    statusText.className = '';
+                    return;
+                }
+                
+                performMove(cluster);
+            });
+
+            newGameBtn.addEventListener('click', () => {
+                if (isAIThinking) return;
+                resetGame();
+                drawBoard();
+            });
+
+            hintBtn.addEventListener('click', () => {
+                if (gameOver || isAIThinking) return;
+                computeHint();
+            });
+
+            // ========== СТАРТ ==========
+            function init() {
+                resetGame();
+                drawBoard();
+                updateUI();
+            }
+
+            init();
+        })();
+    </script>
+</body>
+</html>
