@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Правило Варнсдорфа — 3D ход конём (разворот)</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #eee;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: rgba(30, 30, 30, 0.85);
+            padding: 15px 25px;
+            border-radius: 12px;
+            backdrop-filter: blur(6px);
+            border: 1px solid #444;
+        }
+        #ui h2 {
+            margin: 0 0 10px;
+            color: #ffd966;
+            font-size: 1.4rem;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+        button {
+            background: #ffd966;
+            border: none;
+            color: #1a1a1a;
+            padding: 8px 18px;
+            font-weight: bold;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #e6c34a;
+        }
+        button:disabled {
+            background: #6a6a6a;
+            cursor: not-allowed;
+        }
+        .speed {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .speed input[type="range"] {
+            width: 100px;
+        }
+        #stepCounter {
+            font-size: 1.1rem;
+            margin-left: 10px;
+            color: #ffd966;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <h2>🐴 Правило Варнсдорфа</h2>
+        <div class="controls">
+            <button id="startBtn">▶ Начать обход</button>
+            <button id="stepBtn" disabled>⏭ Шаг</button>
+            <div class="speed">
+                <label for="speedRange">Темп:</label>
+                <input type="range" id="speedRange" min="300" max="1500" value="700" step="50">
+                <span id="speedValue">700 мс</span>
+            </div>
+            <span id="stepCounter">Ход 0 / 49</span>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
+    <script>
+        (function() {
+            // ----- Параметры -----
+            const BOARD_SIZE = 8;
+            const TOTAL_CELLS = BOARD_SIZE * BOARD_SIZE;
+            const CELL_SIZE = 2;
+            const a = CELL_SIZE;
+
+            // Ходы коня
+            const knightOffsets = [
+                [-2, -1], [-2, 1], [-1, -2], [-1, 2],
+                [1, -2], [1, 2], [2, -1], [2, 1]
+            ];
+
+            // ----- Алгоритм Варнсдорфа -----
+            function countMoves(r, c, visited) {
+                let cnt = 0;
+                for (let [dr, dc] of knightOffsets) {
+                    const nr = r + dr, nc = c + dc;
+                    if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && !visited[nr][nc]) cnt++;
+                }
+                return cnt;
+            }
+
+            function getWarnsdorffTour(startR, startC) {
+                const visited = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(false));
+                const tour = [[startR, startC]];
+                visited[startR][startC] = true;
+                let r = startR, c = startC;
+                for (let step = 1; step < TOTAL_CELLS; step++) {
+                    const moves = [];
+                    for (let [dr, dc] of knightOffsets) {
+                        const nr = r + dr, nc = c + dc;
+                        if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && !visited[nr][nc]) {
+                            const onward = countMoves(nr, nc, visited);
+                            moves.push({ nr, nc, onward });
+                        }
+                    }
+                    if (moves.length === 0) return null;
+                    moves.sort((a, b) => a.onward - b.onward);
+                    const minOnward = moves[0].onward;
+                    const best = moves.filter(m => m.onward === minOnward);
+                    const chosen = best[Math.floor(Math.random() * best.length)];
+                    r = chosen.nr; c = chosen.nc;
+                    visited[r][c] = true;
+                    tour.push([r, c]);
+                }
+                return tour;
+            }
+
+            function generateTour() {
+                const starts = [
+                    [0, 0], [0, BOARD_SIZE-1], [BOARD_SIZE-1, 0], [BOARD_SIZE-1, BOARD_SIZE-1],
+                    [3, 3]
+                ];
+                for (let [sr, sc] of starts) {
+                    const t = getWarnsdorffTour(sr, sc);
+                    if (t) return t;
+                }
+                for (let attempt = 0; attempt < 50; attempt++) {
+                    const sr = Math.floor(Math.random() * BOARD_SIZE);
+                    const sc = Math.floor(Math.random() * BOARD_SIZE);
+                    const t = getWarnsdorffTour(sr, sc);
+                    if (t) return t;
+                }
+                return null;
+            }
+
+            // ----- Three.js сцена -----
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x2b2b2b);
+
+            const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 1, 100);
+            camera.position.set(10, -10, 30);
+            camera.up.set(1, -1, 0);
+            camera.lookAt(-3, 7, -15);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            // Освещение
+            const ambient = new THREE.AmbientLight(0xffffff, 0.8);
+            scene.add(ambient);
+            const spotLight = new THREE.SpotLight(0xffffff, 1.2, 100, Math.PI / 2, 0, 0.5);
+            spotLight.position.set(20, 20, 20);
+            spotLight.target.position.set(-1, -1, -1);
+            scene.add(spotLight.target);
+            scene.add(spotLight);
+
+            // Группа с поворотами: вокруг Z (как в оригинале) и разворот на 180° вокруг Y
+            const worldGroup = new THREE.Group();
+            worldGroup.rotation.z = THREE.MathUtils.degToRad(140);
+            worldGroup.rotation.y = Math.PI; // разворот камеры на 180 градусов
+            scene.add(worldGroup);
+
+            // ----- Доска -----
+            const boardGroup = new THREE.Group();
+            worldGroup.add(boardGroup);
+
+            const cellMaterials = [];
+
+            function cellCenter(r, c) {
+                const x = -7 + 2 * c;
+                const z = -7 + 2 * r;
+                return { x, z };
+            }
+
+            function createBoard() {
+                for (let r = 0; r < BOARD_SIZE; r++) {
+                    for (let c = 0; c < BOARD_SIZE; c++) {
+                        const geometry = new THREE.PlaneGeometry(CELL_SIZE, CELL_SIZE);
+                        const material = new THREE.MeshStandardMaterial({ color: 0x00ff00, side: THREE.DoubleSide });
+                        const mesh = new THREE.Mesh(geometry, material);
+                        const { x, z } = cellCenter(r, c);
+                        mesh.position.set(x, 0, z);
+                        mesh.rotation.x = -Math.PI / 2;
+                        boardGroup.add(mesh);
+                        cellMaterials.push({ mesh, material, r, c });
+                    }
+                }
+            }
+
+            // ----- Конь -----
+            const horseGroup = new THREE.Group();
+            worldGroup.add(horseGroup);
+
+            const legRadius = a / 5;
+            const legHeight = a / 2;
+            const legGeo = new THREE.ConeGeometry(legRadius, legHeight, 10);
+            const legMat = new THREE.MeshStandardMaterial({ color: 0xff00ff });
+
+            const legLeft = new THREE.Mesh(legGeo, legMat);
+            const legRight = new THREE.Mesh(legGeo, legMat);
+            legLeft.position.set(-a / 4, legHeight / 2, 0);
+            legRight.position.set(a / 4, legHeight / 2, 0);
+            horseGroup.add(legLeft);
+            horseGroup.add(legRight);
+
+            const bodyGroup = new THREE.Group();
+            bodyGroup.rotation.y = THREE.MathUtils.degToRad(60);
+            horseGroup.add(bodyGroup);
+
+            const bodyRadius = a / 4;
+            const bodyHeight = a;
+            const bodyGeo = new THREE.ConeGeometry(bodyRadius, bodyHeight, 10);
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x00ffff });
+            const bodyCone = new THREE.Mesh(bodyGeo, bodyMat);
+            bodyCone.position.y = a;
+            bodyGroup.add(bodyCone);
+
+            const headGroup = new THREE.Group();
+            headGroup.rotation.y = THREE.MathUtils.degToRad(120);
+            horseGroup.add(headGroup);
+
+            const headRadius = a / 5;
+            const headHeight = a / 4;
+            const headGeo = new THREE.ConeGeometry(headRadius, headHeight, 10);
+            const headMat = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+            const headCone = new THREE.Mesh(headGeo, headMat);
+            headCone.position.y = 1.625 * a;
+            headGroup.add(headCone);
+
+            // ----- Состояние анимации -----
+            let tour = null;
+            let currentStepIndex = -1;
+            let stepMap = null;
+            let moveInProgress = false;
+            let waitUntil = 0;
+            let autoAdvance = false;
+            const moveDuration = 0.6;
+            const pauseDuration = 0.5;
+
+            let bezierStart = new THREE.Vector3();
+            let bezierControl = new THREE.Vector3();
+            let bezierEnd = new THREE.Vector3();
+            let moveStartTime = 0;
+
+            function bezierPoint(t, p0, p1, p2) {
+                const mt = 1 - t;
+                return new THREE.Vector3(
+                    mt * mt * p0.x + 2 * mt * t * p1.x + t * t * p2.x,
+                    mt * mt * p0.y + 2 * mt * t * p1.y + t * t * p2.y,
+                    mt * mt * p0.z + 2 * mt * t * p1.z + t * t * p2.z
+                );
+            }
+
+            function updateCellColors() {
+                if (!stepMap) return;
+                const visitedThreshold = currentStepIndex + 1;
+                cellMaterials.forEach(({ material, r, c }) => {
+                    const stepVal = stepMap[r][c];
+                    const visited = stepVal <= visitedThreshold;
+                    const parity = (c % 2 === 0) !== (r % 2 === 0);
+                    if (!visited) {
+                        material.color.setHex(parity ? 0x00ff00 : 0xffff00);
+                    } else {
+                        material.color.setHex(parity ? 0xff0000 : 0x0000ff);
+                    }
+                });
+            }
+
+            function startMoveToStep(stepIdx) {
+                if (!tour || stepIdx < 0 || stepIdx >= tour.length) return;
+                const [r, c] = tour[stepIdx];
+                const target = new THREE.Vector3(
+                    cellCenter(r, c).x,
+                    0.1,
+                    cellCenter(r, c).z
+                );
+                bezierStart.copy(horseGroup.position);
+                bezierEnd.copy(target);
+
+                const dx = bezierEnd.x - bezierStart.x;
+                const dz = bezierEnd.z - bezierStart.z;
+                if (Math.abs(dx) > Math.abs(dz)) {
+                    bezierControl.set(bezierStart.x + dx, bezierStart.y + 0.5, bezierStart.z);
+                } else {
+                    bezierControl.set(bezierStart.x, bezierStart.y + 0.5, bezierStart.z + dz);
+                }
+
+                moveStartTime = performance.now() / 1000;
+                moveInProgress = true;
+                waitUntil = 0;
+                currentStepIndex = stepIdx;
+                updateCellColors();
+                updateUI();
+            }
+
+            function finishMove() {
+                horseGroup.position.copy(bezierEnd);
+                moveInProgress = false;
+                updateUI();
+
+                if (autoAdvance && currentStepIndex < tour.length - 1) {
+                    waitUntil = performance.now() / 1000 + pauseDuration;
+                } else {
+                    waitUntil = 0;
+                }
+            }
+
+            function animate(timestamp) {
+                requestAnimationFrame(animate);
+                const now = timestamp / 1000;
+
+                if (moveInProgress) {
+                    const elapsed = now - moveStartTime;
+                    const t = Math.min(elapsed / moveDuration, 1.0);
+                    const pos = bezierPoint(t, bezierStart, bezierControl, bezierEnd);
+                    horseGroup.position.copy(pos);
+                    if (t >= 1.0) {
+                        finishMove();
+                    }
+                }
+
+                if (!moveInProgress && waitUntil > 0 && now >= waitUntil) {
+                    waitUntil = 0;
+                    if (autoAdvance && currentStepIndex < tour.length - 1) {
+                        startMoveToStep(currentStepIndex + 1);
+                    }
+                }
+
+                if (moveInProgress) {
+                    const legPhase = Math.floor(performance.now() / 150) % 2;
+                    const lift1 = legPhase * a / 4;
+                    const lift2 = (1 - legPhase) * a / 4;
+                    legLeft.position.y = legHeight / 2 + lift1;
+                    legRight.position.y = legHeight / 2 + lift2;
+                } else {
+                    legLeft.position.y = legHeight / 2;
+                    legRight.position.y = legHeight / 2;
+                }
+
+                renderer.render(scene, camera);
+            }
+
+            // ----- UI -----
+            const startBtn = document.getElementById('startBtn');
+            const stepBtn = document.getElementById('stepBtn');
+            const speedRange = document.getElementById('speedRange');
+            const speedValue = document.getElementById('speedValue');
+            const stepCounter = document.getElementById('stepCounter');
+
+            function updateUI() {
+                const stepNum = currentStepIndex + 1;
+                stepCounter.textContent = `Ход ${Math.max(0, stepNum)} / ${TOTAL_CELLS}`;
+                const canStep = tour && currentStepIndex < tour.length - 1 && !moveInProgress;
+                stepBtn.disabled = !canStep;
+
+                if (autoAdvance) {
+                    startBtn.textContent = '⏸ Пауза';
+                    startBtn.style.background = '#e67e22';
+                } else {
+                    startBtn.textContent = '▶ Продолжить';
+                    startBtn.style.background = '#ffd966';
+                }
+            }
+
+            startBtn.addEventListener('click', () => {
+                if (!tour) {
+                    tour = generateTour();
+                    if (!tour) {
+                        alert('Не удалось построить тур. Попробуйте ещё раз.');
+                        return;
+                    }
+                    stepMap = Array.from({ length: BOARD_SIZE }, () => Array(BOARD_SIZE).fill(0));
+                    tour.forEach(([r, c], idx) => { stepMap[r][c] = idx + 1; });
+                    currentStepIndex = -1;
+                    const [sr, sc] = tour[0];
+                    const startPos = new THREE.Vector3(cellCenter(sr, sc).x, 0.1, cellCenter(sr, sc).z);
+                    horseGroup.position.copy(startPos);
+                    currentStepIndex = 0;
+                    updateCellColors();
+                    updateUI();
+
+                    autoAdvance = true;
+                    moveInProgress = false;
+                    waitUntil = performance.now() / 1000 + pauseDuration;
+                    updateUI();
+                } else {
+                    if (autoAdvance) {
+                        autoAdvance = false;
+                        waitUntil = 0;
+                        updateUI();
+                    } else {
+                        autoAdvance = true;
+                        if (!moveInProgress && waitUntil === 0 && currentStepIndex < tour.length - 1) {
+                            startMoveToStep(currentStepIndex + 1);
+                        }
+                        updateUI();
+                    }
+                }
+            });
+
+            stepBtn.addEventListener('click', () => {
+                if (!tour || moveInProgress || currentStepIndex >= tour.length - 1) return;
+                autoAdvance = false;
+                waitUntil = 0;
+                startMoveToStep(currentStepIndex + 1);
+            });
+
+            speedRange.addEventListener('input', () => {
+                const ms = parseInt(speedRange.value, 10);
+                speedValue.textContent = ms + ' мс';
+                window._moveDuration = ms / 1000;
+            });
+
+            Object.defineProperty(window, 'moveDuration', {
+                get: () => window._moveDuration || 0.7,
+                set: (v) => { window._moveDuration = v; }
+            });
+            window._moveDuration = 0.7;
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            createBoard();
+            updateCellColors();
+            updateUI();
+            animate(0);
+        })();
+    </script>
+</body>
+</html>
