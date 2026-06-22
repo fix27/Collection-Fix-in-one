@@ -1,226 +1,483 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Elevator Simulation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>Симуляция лифта</title>
     <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            background: #f0f0f0;
+            background: #e9eef2;
             display: flex;
             justify-content: center;
+            align-items: center;
+            min-height: 100vh;
             padding: 20px;
+            margin: 0;
         }
-        #app {
-            display: flex;
-            gap: 40px;
+
+        .container {
             background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            padding: 24px 28px;
+            max-width: 800px;
+            width: 100%;
+            display: flex;
             flex-wrap: wrap;
-            max-width: 900px;
+            gap: 20px;
+            justify-content: center;
         }
-        #controls {
+
+        .panel {
+            flex: 1 1 320px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
-            min-width: 200px;
+            gap: 16px;
         }
-        .param {
+
+        .shaft-area {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #f4f6f8;
+            border-radius: 20px;
+            padding: 10px;
+        }
+
+        canvas {
+            border: 2px solid #b0bec5;
+            border-radius: 18px;
+            background: #ffffff;
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .controls {
+            background: #f8faff;
+            border-radius: 18px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            border: 1px solid #d9e2ec;
+        }
+
+        .stat-group {
+            background: white;
+            border-radius: 14px;
+            padding: 12px 14px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .progress-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .progress-row label {
+            min-width: 80px;
+            font-weight: 500;
+            color: #1e293b;
+        }
+
+        progress {
+            flex: 1;
+            height: 18px;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        progress::-webkit-progress-bar {
+            background-color: #e2e8f0;
+            border-radius: 12px;
+        }
+
+        progress::-webkit-progress-value {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            border-radius: 12px;
+        }
+
+        .value {
+            min-width: 45px;
+            text-align: right;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .input-group {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 8px;
         }
-        .param label {
-            margin-right: 5px;
-            font-size: 14px;
+
+        .input-group label {
+            font-weight: 500;
+            color: #334155;
+            flex: 1;
         }
-        .param input[type="number"] {
-            width: 60px;
+
+        .input-group input,
+        .input-group select {
+            width: 85px;
+            padding: 6px 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: 500;
+            background: white;
         }
-        button {
-            padding: 8px 12px;
-            font-weight: bold;
+
+        .time-display {
+            font-family: 'Courier New', monospace;
+            font-weight: 700;
+            font-size: 1.4rem;
+            background: #1e293b;
+            color: #f1f5f9;
+            padding: 8px 16px;
+            border-radius: 30px;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 10px 22px;
             border: none;
-            background: #007bff;
-            color: white;
-            border-radius: 4px;
+            border-radius: 30px;
+            font-weight: 600;
             cursor: pointer;
+            background: #e2e8f0;
+            color: #1e293b;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
-        button:hover {
-            background: #0056b3;
+
+        .btn.primary {
+            background: #0f172a;
+            color: white;
         }
-        #speedControl {
+
+        .btn:hover {
+            filter: brightness(0.96);
+            transform: scale(1.02);
+        }
+
+        .indicator {
             display: flex;
             align-items: center;
             gap: 10px;
         }
-        #stats {
-            background: #fafafa;
-            padding: 10px;
-            border-radius: 6px;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            font-size: 14px;
+
+        .led {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #94a3b8;
         }
-        #building {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-width: 150px;
-        }
-        .floor-label {
-            font-weight: bold;
-            margin: 5px 0;
-        }
-        #shaft {
-            position: relative;
-            width: 80px;
-            height: 300px;
-            background: #e0e0e0;
-            border: 2px solid #555;
-            overflow: hidden;
-        }
-        #elevator {
-            position: absolute;
-            left: 10px;
-            width: 60px;
-            height: 40px;
-            background: #3498db;
-            border: 1px solid #2c3e50;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            color: white;
-            transition: top 0.1s linear;
-        }
-        progress {
-            width: 100%;
-        }
-        .progress-group {
-            margin: 5px 0;
-        }
-        .progress-group span {
-            display: inline-block;
-            width: 60px;
+
+        .led.active {
+            background: #10b981;
+            box-shadow: 0 0 8px #10b981;
         }
     </style>
 </head>
 <body>
-    <div id="app">
-        <div id="controls">
-            <h3>Parameters</h3>
-            <div class="param">
-                <label>QueuePerM:</label>
-                <input type="number" id="QueuePerM" value="1" min="0" max="20" step="1">
-            </div>
-            <div class="param">
-                <label>QueuePerD:</label>
-                <input type="number" id="QueuePerD" value="3" min="0" max="20" step="1">
-            </div>
-            <div class="param">
-                <label>Floor:</label>
-                <input type="number" id="Floor" value="2" min="1" max="10" step="1">
-            </div>
-            <div class="param">
-                <label>TimeOutM:</label>
-                <input type="number" id="TimeOutM" value="10" min="0" max="100" step="1">
-            </div>
-            <div class="param">
-                <label>TimeOutSee:</label>
-                <input type="number" id="TimeOutSee" value="20" min="0" max="100" step="1">
-            </div>
-            <div>
-                <button id="startStopBtn">Start</button>
-                <button id="resetBtn">Reset</button>
-            </div>
-            <div id="speedControl">
-                <span>Speed:</span>
-                <input type="range" id="speedSlider" min="1" max="10" value="1">
-                <span id="speedValue">1</span>
-            </div>
+<div class="container">
+    <div class="panel">
+        <div class="shaft-area">
+            <canvas id="shaftCanvas" width="200" height="420"></canvas>
         </div>
-
-        <div id="stats">
-            <div>Time: <span id="timeDisplay">08:00:00</span></div>
-            <div>Lost clients: <span id="lostDisplay">0</span></div>
-            <div>Moves: <span id="movesDisplay">0</span></div>
-            <div>Idle: <span id="idleDisplay">0</span></div>
-            <div>Avg pass/trip: <span id="avgPassDisplay">0</span></div>
-            <div>Avg cycle time: <span id="avgCycleDisplay">0</span></div>
-            <div class="progress-group">
-                <span>Queue:</span>
-                <progress id="queueBar" max="20" value="0"></progress>
-                <span id="queueText">0</span>
-            </div>
-            <div class="progress-group">
-                <span>Elevator:</span>
-                <progress id="elevBar" max="8" value="0"></progress>
-                <span id="elevText">0</span>
-            </div>
-            <div class="progress-group">
-                <span>Upper wait:</span>
-                <progress id="upperBar" max="8" value="0"></progress>
-                <span id="upperText">0</span>
-            </div>
-        </div>
-
-        <div id="building">
-            <div class="floor-label" id="upperFloorLabel">Upper floor (wait: 0)</div>
-            <div id="shaft">
-                <div id="elevator">0</div>
-            </div>
-            <div class="floor-label" id="lowerFloorLabel">Lobby (queue: 0)</div>
+        <div class="stat-group">
+            <span class="indicator"><span class="led" id="statusLed"></span><span id="statusText">Ожидание</span></span>
+            <div class="time-display" id="currentTimeLabel">08:00:00</div>
         </div>
     </div>
 
-    <script>
-        // --- simulation state ---
+    <div class="panel">
+        <div class="controls">
+            <div class="progress-row">
+                <label>🚶 Очередь</label>
+                <progress id="queueBar" max="20" value="0"></progress>
+                <span class="value" id="queueValue">0</span>
+            </div>
+            <div class="progress-row">
+                <label>🛗 В лифте</label>
+                <progress id="pupilBar" max="8" value="0"></progress>
+                <span class="value" id="pupilValue">0</span>
+            </div>
+            <div class="progress-row">
+                <label>🏢 На этаже</label>
+                <progress id="seeBar" max="8" value="0"></progress>
+                <span class="value" id="seeValue">0</span>
+            </div>
+
+            <div class="stat-group">
+                <div><strong>📊 Статистика</strong></div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%;">
+                    <div>Потеряно: <span id="lostPass">0</span></div>
+                    <div>Поездок: <span id="tripCount">0</span></div>
+                    <div>Простоев: <span id="idleCount">0</span></div>
+                    <div>Ср. пасс./поездка: <span id="avgPass">0.00</span></div>
+                    <div>Ср. время цикла: <span id="avgCycle">0.00</span></div>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>🕒 Мин. прибытие/цикл</label>
+                <input type="number" id="queuePerM" value="1" min="0" max="10" step="1">
+            </div>
+            <div class="input-group">
+                <label>📈 Макс. прибытие/цикл</label>
+                <input type="number" id="queuePerD" value="3" min="0" max="15" step="1">
+            </div>
+            <div class="input-group">
+                <label>🏬 Этажи</label>
+                <input type="number" id="floorCount" value="5" min="2" max="15" step="1">
+            </div>
+            <div class="input-group">
+                <label>⏳ Таймаут движения (циклы)</label>
+                <input type="number" id="timeoutM" value="8" min="1" max="30" step="1">
+            </div>
+            <div class="input-group">
+                <label>👀 Таймаут ожидания (циклы)</label>
+                <input type="number" id="timeoutSee" value="12" min="1" max="40" step="1">
+            </div>
+            <div class="input-group">
+                <label>⚡ Интервал таймера (мс)</label>
+                <input type="range" id="timerInterval" min="20" max="200" value="50" step="5">
+                <span id="intervalValue">50</span>
+            </div>
+
+            <div class="buttons">
+                <button class="btn primary" id="startStopBtn">▶ Старт</button>
+                <button class="btn" id="resetBtn">🔄 Сброс</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ----- Константы симуляции -----
+        const SPEED = 0.9;
+        const FLOOR_HEIGHT = 3.5;
+        const MAX_PUPIL = 8;
+        const MAX_QUEUE = 20;
+        const TIME_B = 8;
+        const TIME_E = 18;
+        const SERVICE_B = 12;
+        const SERVICE_MIN = 30;
+
+        // ----- Элементы DOM -----
+        const canvas = document.getElementById('shaftCanvas');
+        const ctx = canvas.getContext('2d');
+        const queueBar = document.getElementById('queueBar');
+        const queueValue = document.getElementById('queueValue');
+        const pupilBar = document.getElementById('pupilBar');
+        const pupilValue = document.getElementById('pupilValue');
+        const seeBar = document.getElementById('seeBar');
+        const seeValue = document.getElementById('seeValue');
+        const lostPassSpan = document.getElementById('lostPass');
+        const tripCountSpan = document.getElementById('tripCount');
+        const idleCountSpan = document.getElementById('idleCount');
+        const avgPassSpan = document.getElementById('avgPass');
+        const avgCycleSpan = document.getElementById('avgCycle');
+        const currentTimeLabel = document.getElementById('currentTimeLabel');
+        const statusLed = document.getElementById('statusLed');
+        const statusText = document.getElementById('statusText');
+        const startStopBtn = document.getElementById('startStopBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const timerIntervalInput = document.getElementById('timerInterval');
+        const intervalValueSpan = document.getElementById('intervalValue');
+
+        const queuePerMInput = document.getElementById('queuePerM');
+        const queuePerDInput = document.getElementById('queuePerD');
+        const floorInput = document.getElementById('floorCount');
+        const timeoutMInput = document.getElementById('timeoutM');
+        const timeoutSeeInput = document.getElementById('timeoutSee');
+
+        // ----- Переменные состояния -----
         let vspeed = 0;
         let vHeight = 0;
-        let vCountPupil = 0;      // passengers inside elevator
-        let vCountPupilSee = 0;   // passengers waiting on upper floor
+        let vCountPupil = 0;
+        let vCountPupilSee = 0;
         let vTimeOutSee = 0;
         let vTimeOut = 0;
         let vQueue = 0;
-        let updown = -1;          // -1 = bottom, 1 = top, 0 = moving
+        let updown = -1;           // -1 внизу, 1 наверху, 0 движется
         let countup = 0;
         let sum = 0;
-        let ci = 0, co = 0, cm = 0, coi = 0;
-        let ccp = 0, ccm = 0;
-        let curtime = new Date();
-        let zzz = 0;
-        let moves = 0, idle = 0;
+        let ci = 0;
+        let co = 0;
+        let cm = 0;
+        let coi = 0;
+        let ccp = 0;
+        let ccm = 0;
+        let lostAccum = 0;
 
-        // configurable parameters (read from DOM)
-        function readParams() {
-            const qPM = parseInt(document.getElementById('QueuePerM').value) || 1;
-            const qPD = parseInt(document.getElementById('QueuePerD').value) || 3;
-            const fl = parseInt(document.getElementById('Floor').value) || 2;
-            const tOutM = parseInt(document.getElementById('TimeOutM').value) || 10;
-            const tOutSee = parseInt(document.getElementById('TimeOutSee').value) || 20;
-            return { QueuePerM: qPM, QueuePerD: qPD, Floor: fl, TimeOutM: tOutM, TimeOutSee: tOutSee };
+        let curTime = new Date();
+        let tickCounter = 0;
+        let timerId = null;
+        let running = false;
+
+        function getParams() {
+            return {
+                timeoutSee: parseInt(timeoutSeeInput.value, 10) || 12,
+                timeoutM: parseInt(timeoutMInput.value, 10) || 8,
+                floor: Math.max(2, parseInt(floorInput.value, 10) || 5),
+                queuePerM: parseInt(queuePerMInput.value, 10) || 1,
+                queuePerD: Math.max(0, (parseInt(queuePerDInput.value, 10) || 3) - (parseInt(queuePerMInput.value, 10) || 1))
+            };
         }
 
-        // constants
-        const CountPupil = 8;
-        const QueueLimit = 20;
-        const speedConst = 0.9;
-        const FloorHeight = 3.5;
-        const TimeB = 8, TimeE = 18;
-        const TimeServiceB = 12, TimeServiceMin = 30;
-
-        // helper: check working hours (excluding lunch break)
-        function bb() {
-            const h = curtime.getHours();
-            const m = curtime.getMinutes();
-            if (h < TimeB || h >= TimeE) return false;
-            if (h === TimeServiceB && m <= TimeServiceMin) return false;
+        function isWorkingTime(dt) {
+            const h = dt.getHours();
+            const m = dt.getMinutes();
+            if (h < TIME_B || h >= TIME_E) return false;
+            if (h === SERVICE_B && m <= SERVICE_MIN) return false;
             return true;
+        }
+
+        function formatTime(dt) {
+            return `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}:${String(dt.getSeconds()).padStart(2,'0')}`;
+        }
+
+        function updateUI() {
+            queueBar.value = vQueue;
+            queueValue.textContent = vQueue;
+            pupilBar.value = vCountPupil;
+            pupilValue.textContent = vCountPupil;
+            seeBar.value = vCountPupilSee;
+            seeValue.textContent = vCountPupilSee;
+            lostPassSpan.textContent = lostAccum;
+            tripCountSpan.textContent = countup;
+            idleCountSpan.textContent = document.getElementById('idleCount').textContent || '0';
+            avgPassSpan.textContent = countup > 0 ? (sum / countup).toFixed(2) : '0.00';
+            avgCycleSpan.textContent = ccp > 0 ? (ccm / ccp).toFixed(2) : '0.00';
+            currentTimeLabel.textContent = formatTime(curTime);
+
+            if (updown === 0) {
+                statusLed.className = 'led active';
+                statusText.textContent = 'Движение';
+            } else {
+                statusLed.className = 'led';
+                statusText.textContent = updown === -1 ? 'Внизу' : 'Наверху';
+            }
+        }
+
+        function drawShaft() {
+            if (!canvas || !ctx) return;
+            const w = canvas.width;
+            const h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            const params = getParams();
+            const floor = params.floor;
+            const totalHeight = floor * FLOOR_HEIGHT;
+
+            // Шахта
+            const shaftX = 40;
+            const shaftW = w - 80;
+            const shaftTop = 15;
+            const shaftBottom = h - 15;
+            const shaftHeight = shaftBottom - shaftTop;
+
+            ctx.fillStyle = '#e9eef2';
+            ctx.fillRect(shaftX, shaftTop, shaftW, shaftHeight);
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 2.5;
+            ctx.strokeRect(shaftX, shaftTop, shaftW, shaftHeight);
+
+            // Направляющие (вертикальные линии)
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 0.8;
+            ctx.beginPath();
+            ctx.moveTo(shaftX + 8, shaftTop);
+            ctx.lineTo(shaftX + 8, shaftBottom);
+            ctx.moveTo(shaftX + shaftW - 8, shaftTop);
+            ctx.lineTo(shaftX + shaftW - 8, shaftBottom);
+            ctx.stroke();
+
+            // Этажи и подписи (снизу вверх: 1,2,...floor)
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 11px "Segoe UI"';
+            for (let i = 0; i <= floor; i++) {
+                // y-координата линии: снизу (i=0) до верха (i=floor)
+                const y = shaftBottom - (shaftHeight * i) / floor;
+                ctx.beginPath();
+                ctx.moveTo(shaftX, y);
+                ctx.lineTo(shaftX + shaftW, y);
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 0.6;
+                ctx.stroke();
+
+                // Подпись этажа: для i < floor – номер i+1
+                if (i < floor) {
+                    ctx.fillText(i + 1, shaftX - 28, y + 4);
+                }
+            }
+
+            // Кабина лифта
+            const cabinWidth = shaftW - 16;
+            const cabinHeight = shaftHeight / floor;
+            const fraction = totalHeight > 0 ? vHeight / totalHeight : 0;
+            let cabinY = shaftBottom - fraction * shaftHeight - cabinHeight;
+            cabinY = Math.min(shaftBottom - cabinHeight, Math.max(shaftTop, cabinY));
+
+            const cabinX = shaftX + 8;
+
+            // Внешняя рамка кабины
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(cabinX - 1, cabinY - 1, cabinWidth + 2, cabinHeight + 2);
+            // Внутренность кабины
+            ctx.fillStyle = '#f1f5f9';
+            ctx.fillRect(cabinX, cabinY, cabinWidth, cabinHeight);
+
+            // Двери (вертикальная полоса по центру)
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillRect(cabinX + cabinWidth / 2 - 1.5, cabinY + 4, 3, cabinHeight - 8);
+            // Ручки дверей
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillRect(cabinX + cabinWidth / 2 - 8, cabinY + cabinHeight / 2 - 6, 6, 12);
+            ctx.fillRect(cabinX + cabinWidth / 2 + 2, cabinY + cabinHeight / 2 - 6, 6, 12);
+
+            // Дисплей этажа внутри кабины
+            const currentFloor = Math.round(vHeight / FLOOR_HEIGHT) + 1;
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(cabinX + cabinWidth - 26, cabinY + 6, 18, 14);
+            ctx.fillStyle = '#10b981';
+            ctx.font = 'bold 10px "Courier New"';
+            ctx.fillText(String(currentFloor).padStart(2, '0'), cabinX + cabinWidth - 24, cabinY + 17);
+
+            // Индикатор движения (стрелка или точка)
+            if (updown === 0) {
+                ctx.fillStyle = '#facc15';
+                ctx.beginPath();
+                ctx.arc(cabinX + cabinWidth / 2, cabinY + 4, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
 
         function resetSimulation() {
@@ -234,215 +491,187 @@
             updown = -1;
             countup = 0;
             sum = 0;
-            ci = 0; co = 0; cm = 0; coi = 0;
-            ccp = 0; ccm = 0;
-            curtime = new Date();
-            curtime.setHours(8, 0, 0, 0);
-            zzz = 0;
-            moves = 0; idle = 0;
-            updateDisplay();
+            ci = 0;
+            co = 0;
+            cm = 0;
+            coi = 0;
+            ccp = 0;
+            ccm = 0;
+            lostAccum = 0;
+            tickCounter = 0;
+            const now = new Date();
+            curTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0);
+            document.getElementById('idleCount').textContent = '0';
+            drawShaft();
+            updateUI();
         }
 
-        function doStep() {
-            const params = readParams();
-            const QueuePerM = params.QueuePerM;
-            const QueuePerD = params.QueuePerD;
-            const Floor = params.Floor;
-            const TimeOutM = params.TimeOutM;
-            const TimeOutSee = params.TimeOutSee;
+        function processTick() {
+            const params = getParams();
+            const TimeOutSee = params.timeoutSee;
+            const TimeOutM = params.timeoutM;
+            const Floor = params.floor;
+            const QueuePerM = params.queuePerM;
+            const QueuePerD = params.queuePerD;
 
-            // --- cycle start detection ---
+            curTime = new Date(curTime.getTime() + 3000);
+
             if (cm === 0) coi = ci;
             cm++;
 
-            // --- loading at bottom ---
-            if (updown === -1 && bb()) {
-                while (vCountPupil < CountPupil && vQueue > 0) {
+            if (updown === -1 && isWorkingTime(curTime)) {
+                while (vCountPupil < MAX_PUPIL && vQueue > 0) {
                     vQueue--;
                     vCountPupil++;
                 }
             }
 
-            // --- increment timeouts ---
             if (vTimeOutSee < TimeOutSee) vTimeOutSee++;
             if (vTimeOut < TimeOutM) vTimeOut++;
 
-            // --- exchange passengers at top if arriving ---
             if (updown === 1) {
-                vspeed = -speedConst;
-                // swap vCountPupil and vCountPupilSee
-                let tmp = vCountPupil;
+                vspeed = -SPEED;
+                let temp = vCountPupil;
                 vCountPupil = vCountPupilSee;
-                vCountPupilSee = tmp;
+                vCountPupilSee = temp;
             }
 
-            // --- departure conditions from bottom to top ---
-            if ((!bb() || vTimeOutSee >= TimeOutSee) && updown === -1 && vCountPupilSee > 0) {
-                vspeed = speedConst;
-                vTimeOutSee = 0;
-            }
-            if ((vCountPupil === CountPupil || (vTimeOut >= TimeOutM && vCountPupil > 0)) && updown === -1) {
-                vspeed = speedConst;
-                vTimeOut = 0;
+            if (updown === -1) {
+                let startUp = false;
+                if ((!isWorkingTime(curTime) || vTimeOutSee >= TimeOutSee) && vCountPupilSee > 0) {
+                    startUp = true;
+                }
+                if ((vCountPupil === MAX_PUPIL || (vTimeOut >= TimeOutM && vCountPupil > 0))) {
+                    startUp = true;
+                }
+                if (startUp) {
+                    vspeed = SPEED;
+                    vTimeOut = 0;
+                    if (vTimeOutSee >= TimeOutSee) vTimeOutSee = 0;
+                }
             }
 
-            // --- passenger arrival to queue ---
             let tp = 0;
-            if (bb()) {
+            if (isWorkingTime(curTime)) {
                 tp = Math.floor(Math.random() * (QueuePerD + 1)) + QueuePerM;
             } else {
-                tp = 0;
-                vQueue = 0; // clear queue outside working hours
+                vQueue = 0;
             }
             vQueue += tp;
-            if (vQueue > QueueLimit) {
-                const overflow = vQueue - QueueLimit;
-                document.getElementById('lostDisplay').textContent =
-                    (parseInt(document.getElementById('lostDisplay').textContent) + overflow).toString();
+            if (vQueue > MAX_QUEUE) {
+                const overflow = vQueue - MAX_QUEUE;
+                lostAccum += overflow;
                 ci += tp - overflow;
-                vQueue = QueueLimit;
+                vQueue = MAX_QUEUE;
             } else {
                 ci += tp;
             }
 
-            // --- update stats (moves/idle) ---
             if (vspeed !== 0) {
-                moves++;
+                tripCountSpan.textContent = parseInt(tripCountSpan.textContent || '0') + 1;
             } else {
-                idle++;
+                idleCountSpan.textContent = parseInt(idleCountSpan.textContent || '0') + 1;
             }
 
-            // --- cycle time calculation on passenger exit at bottom ---
             if (co > coi) {
                 ccp++;
                 ccm += cm;
                 cm = 0;
-                if (ccp > 0) {
-                    document.getElementById('avgCycleDisplay').textContent = (ccm / ccp).toFixed(2);
-                }
             }
+        }
 
-            // --- elevator movement ---
+        function moveCabin() {
             if (vspeed !== 0) {
                 vHeight += vspeed * 3;
-                updown = 0;
-            }
+                const params = getParams();
+                const totalHeight = params.floor * FLOOR_HEIGHT;
 
-            // --- arrival at top ---
-            if (vHeight >= Floor * FloorHeight && updown !== 1) {
-                vHeight = Floor * FloorHeight;
-                updown = 1;
-                vspeed = 0;
-                countup++;
-                sum += vCountPupil;
-                document.getElementById('avgPassDisplay').textContent = (sum / countup).toFixed(2);
-            }
-
-            // --- arrival at bottom ---
-            if (vHeight <= 0 && updown !== -1) {
-                vHeight = 0;
-                updown = -1;
-                vspeed = 0;
-                countup++;
-                sum += vCountPupil;
-                co += vCountPupil;
-                document.getElementById('avgPassDisplay').textContent = (sum / countup).toFixed(2);
-                vCountPupil = 0;
-            }
-
-            // --- advance simulation time ---
-            curtime.setSeconds(curtime.getSeconds() + 3);
-
-            // --- update UI ---
-            updateDisplay();
-        }
-
-        function updateDisplay() {
-            // time
-            const h = curtime.getHours().toString().padStart(2, '0');
-            const m = curtime.getMinutes().toString().padStart(2, '0');
-            const s = curtime.getSeconds().toString().padStart(2, '0');
-            document.getElementById('timeDisplay').textContent = `${h}:${m}:${s}`;
-
-            // counts
-            document.getElementById('movesDisplay').textContent = moves;
-            document.getElementById('idleDisplay').textContent = idle;
-
-            // progress bars
-            document.getElementById('queueBar').value = vQueue;
-            document.getElementById('queueText').textContent = vQueue;
-            document.getElementById('elevBar').value = vCountPupil;
-            document.getElementById('elevText').textContent = vCountPupil;
-            document.getElementById('upperBar').value = vCountPupilSee;
-            document.getElementById('upperText').textContent = vCountPupilSee;
-
-            // floor labels
-            document.getElementById('upperFloorLabel').textContent = `Upper floor (wait: ${vCountPupilSee})`;
-            document.getElementById('lowerFloorLabel').textContent = `Lobby (queue: ${vQueue})`;
-
-            // elevator position
-            const shaft = document.getElementById('shaft');
-            const elevator = document.getElementById('elevator');
-            const shaftHeight = shaft.clientHeight;
-            const elevHeight = elevator.clientHeight;
-            const params = readParams();
-            const Floor = params.Floor;
-            const maxHeight = Floor * FloorHeight;
-            let ratio = 0;
-            if (maxHeight > 0) ratio = vHeight / maxHeight;
-            const topPos = (1 - ratio) * (shaftHeight - elevHeight);
-            elevator.style.top = topPos + 'px';
-            elevator.textContent = vCountPupil;
-        }
-
-        // --- timer control ---
-        let timer = null;
-        function startTimer() {
-            if (timer) return;
-            timer = setInterval(() => {
-                const speed = parseInt(document.getElementById('speedSlider').value) || 1;
-                zzz += speed;
-                while (zzz >= 20) {
-                    zzz -= 20;
-                    doStep();
+                if (vHeight >= totalHeight && updown !== 1) {
+                    vHeight = totalHeight;
+                    updown = 1;
+                    vspeed = 0;
+                    countup++;
+                    sum += vCountPupil;
                 }
-            }, 50);
-        }
-
-        function stopTimer() {
-            if (timer) {
-                clearInterval(timer);
-                timer = null;
+                if (vHeight <= 0 && updown !== -1) {
+                    vHeight = 0;
+                    updown = -1;
+                    vspeed = 0;
+                    countup++;
+                    sum += vCountPupil;
+                    co += vCountPupil;
+                    vCountPupil = 0;
+                }
             }
+            drawShaft();
         }
 
-        function toggleTimer() {
-            const btn = document.getElementById('startStopBtn');
-            if (timer) {
-                stopTimer();
-                btn.textContent = 'Start';
+        function timerCallback() {
+            tickCounter++;
+            moveCabin();
+            if (tickCounter % 20 === 0) {
+                processTick();
+            }
+            updateUI();
+        }
+
+        function toggleRun() {
+            if (running) {
+                clearInterval(timerId);
+                timerId = null;
+                running = false;
+                startStopBtn.innerHTML = '▶ Старт';
             } else {
-                startTimer();
-                btn.textContent = 'Stop';
+                const interval = parseInt(timerIntervalInput.value, 10) || 50;
+                timerId = setInterval(timerCallback, interval);
+                running = true;
+                startStopBtn.innerHTML = '⏸ Стоп';
             }
         }
 
-        // --- event listeners ---
-        document.getElementById('startStopBtn').addEventListener('click', toggleTimer);
-        document.getElementById('resetBtn').addEventListener('click', () => {
+        startStopBtn.addEventListener('click', toggleRun);
+        resetBtn.addEventListener('click', () => {
+            if (running) {
+                clearInterval(timerId);
+                timerId = null;
+                running = false;
+                startStopBtn.innerHTML = '▶ Старт';
+            }
             resetSimulation();
-        });
-        document.getElementById('speedSlider').addEventListener('input', (e) => {
-            document.getElementById('speedValue').textContent = e.target.value;
         });
 
-        // initialise
-        window.addEventListener('load', () => {
-            resetSimulation();
-            // ensure timer is stopped on start
-            stopTimer();
-            document.getElementById('startStopBtn').textContent = 'Start';
+        timerIntervalInput.addEventListener('input', () => {
+            intervalValueSpan.textContent = timerIntervalInput.value;
+            if (running) {
+                clearInterval(timerId);
+                const newInterval = parseInt(timerIntervalInput.value, 10) || 50;
+                timerId = setInterval(timerCallback, newInterval);
+            }
         });
-    </script>
+
+        queuePerMInput.addEventListener('input', () => {
+            const minVal = parseInt(queuePerMInput.value, 10) || 0;
+            if (parseInt(queuePerDInput.value, 10) < minVal) {
+                queuePerDInput.value = minVal;
+            }
+        });
+        queuePerDInput.addEventListener('input', () => {
+            const maxVal = parseInt(queuePerDInput.value, 10) || 0;
+            if (parseInt(queuePerMInput.value, 10) > maxVal) {
+                queuePerMInput.value = maxVal;
+            }
+        });
+
+        resetSimulation();
+        drawShaft();
+        curTime = new Date();
+        curTime.setHours(8, 0, 0, 0);
+        updateUI();
+
+        window.addEventListener('beforeunload', () => {
+            if (timerId) clearInterval(timerId);
+        });
+    })();
+</script>
 </body>
 </html>
